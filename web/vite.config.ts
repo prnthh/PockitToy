@@ -5,18 +5,21 @@ import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
 
 // https://vite.dev/config/
-export default defineConfig({
-  plugins: [react(), tailwindcss(),
+export default defineConfig(({ mode }) => ({
+  plugins: [
+    react(),
+    tailwindcss(),
     VitePWA({
-      registerType: 'autoUpdate',  // Auto-registers and updates the SW
+      registerType: 'autoUpdate',
+      devOptions: {
+        enabled: false  // Disables SW/PWA in dev mode
+      },
       workbox: {
-        // Minimal caching: Cache all local assets for offline use
         globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
         runtimeCaching: [
           {
-            // Cache the app shell (index.html and assets)
-            urlPattern: /^https?:\/\/localhost:\d{4}/,  // Adjust for your dev/prod URL
-            handler: 'CacheFirst',
+            urlPattern: /^https?:\/\/localhost:\d{4}/,  // Dev pattern (though SW is disabled in dev)
+            handler: 'NetworkFirst',  // Always use NetworkFirst for fresh content
             options: {
               cacheName: 'offline-shell',
               expiration: {
@@ -25,22 +28,27 @@ export default defineConfig({
               },
             },
           },
+          // Add a prod-specific pattern
+          // {
+          //   urlPattern: /^https:\/\/your-prod-domain\.com/,
+          //   handler: 'NetworkFirst',
+          //   options: { ... }
+          // }
         ],
-        skipWaiting: true,  // Activates new SW immediately after install
-        cleanupOutdatedCaches: true,  // Clears old caches on activate
+        skipWaiting: true,
+        cleanupOutdatedCaches: true,
       },
       manifest: {
-        // Customize this for your counter app
         name: 'Pockit Toy',
         short_name: 'Pockit Toy',
         description: 'The most swag toy ever.',
         theme_color: '#ffffff',
         background_color: '#ffffff',
-        display: 'standalone',  // Fullscreen like a native app
+        display: 'standalone',
         start_url: '/',
         icons: [
           {
-            src: 'icon.png',  // Add a 512x512 PNG icon to public/
+            src: 'icon.png',
             sizes: '512x512',
             type: 'image/png'
           }
@@ -54,4 +62,4 @@ export default defineConfig({
       '@': resolve(__dirname, 'src')
     }
   }
-})
+}))
