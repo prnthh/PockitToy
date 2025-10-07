@@ -30,11 +30,7 @@ jobs:
         with:
           node-version: "20"
 
-      - name: Configure Pages
-        uses: actions/configure-pages@v5
-        with:
-          # Vite is a static site generator; this helps the Pages action know what to expect.
-          static_site_generator: vite
+      # configure-pages step removed due to intermittent TypeError in the action
 
       - name: Restore cache
         uses: actions/cache@v4
@@ -55,6 +51,15 @@ jobs:
         run: |
           cd web
           npm run build
+
+      - name: Verify build output
+        run: |
+          if [ ! -d web/dist ]; then
+            echo "Build output directory web/dist not found. Vite build may have failed." >&2
+            echo "Run 'cd web && npm run build' locally to inspect errors." >&2
+            exit 1
+          fi
+          echo "web/dist contents:" && ls -la web/dist
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
