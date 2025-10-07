@@ -45,7 +45,7 @@ jobs:
       - name: Install dependencies
         run: |
           cd web
-          npm ci
+          npm i
 
       - name: Build (Vite)
         run: |
