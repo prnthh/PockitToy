@@ -5,10 +5,8 @@ import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
 
 // https://vite.dev/config/
-export default defineConfig(({ mode }) => ({
-  plugins: [
-    react(),
-    tailwindcss(),
+export default defineConfig({
+  plugins: [react(), tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
       devOptions: {
@@ -62,4 +60,4 @@ export default defineConfig(({ mode }) => ({
       '@': resolve(__dirname, 'src')
     }
   }
-}))
+})
