@@ -165,78 +165,74 @@ export default function MP({ appId = 'pockit.world', roomId, children }: { appId
   return (
     <MPContext.Provider value={{ peerStates }}>
       {children}
-      <div className='fixed w-screen h-screen pointer-events-none select-none z-50'>
-        <div className={`bottom-2 left-1/2 -translate-x-1/2 absolute transition-all pointer-events-auto flex flex-col`}>
-          <div
-            className="h-[220px] w-[92vw] md:w-[400px] flex flex-row items-center rounded-[2.2rem] text-black bg-gradient-to-br from-[#2229] to-[#2226] p-4 font-sans shadow-[inset_-8px_8px_6px_-8px_#ffffff,inset_8px_-8px_6px_-8px_#000000]"
-            style={{
-              backdropFilter: 'blur(16px)',
-            }}
-          >
-            <div className="flex flex-col items-center justify-end min-w-[80px] text-white pr-2">
-              {/* Pager nav buttons, simplified */}
-              <div className="flex flex-col gap-2 mt-1">
-                {['profile', 'chat', 'friends'].map((page) => (
-                  <div
-                    key={page}
-                    className={`${page === currentUIPage ? 'bg-[#1976d2]' : 'bg-gradient-to-br from-[#1976d2] to-[#8cf]'} hover:scale-102 active:scale-95 transition-all h-5 px-1 cursor-pointer rounded-full border shadow flex items-center justify-center font-bold text-[13px]`}
-                    style={{
-                      boxShadow: '0 1px 4px 0 #8cf8',
-                    }}
-                    onMouseEnter={() => playSound('/sound/click.mp3')}
-                    onPointerDown={() => playSound('/sound/click2.mp3')}
-                    onClick={() => {
-                      if (page === 'chat') setCurrentUIPage('chat')
-                      else if (page === 'profile') setCurrentUIPage('profile')
-                      else if (page === 'friends') setCurrentUIPage('friends')
-                    }}
-                  >
-                    {page}
-                  </div>
-                ))}
+      <div
+        className="h-[220px] w-[92vw] md:w-[400px] flex flex-row items-center rounded-[2.2rem] text-black bg-gradient-to-br from-[#2229] to-[#2226] p-4 font-sans shadow-[inset_-8px_8px_6px_-8px_#ffffff,inset_8px_-8px_6px_-8px_#000000]"
+        style={{
+          backdropFilter: 'blur(16px)',
+        }}
+      >
+        <div className="flex flex-col items-center justify-end min-w-[80px] text-white pr-2">
+          {/* Pager nav buttons, simplified */}
+          <div className="flex flex-col gap-2 mt-1">
+            {['profile', 'chat', 'friends'].map((page) => (
+              <div
+                key={page}
+                className={`${page === currentUIPage ? 'bg-[#1976d2]' : 'bg-gradient-to-br from-[#1976d2] to-[#8cf]'} hover:scale-102 active:scale-95 transition-all h-5 px-1 cursor-pointer rounded-full border shadow flex items-center justify-center font-bold text-[13px]`}
+                style={{
+                  boxShadow: '0 1px 4px 0 #8cf8',
+                }}
+                onMouseEnter={() => playSound('/sound/click.mp3')}
+                onPointerDown={() => playSound('/sound/click2.mp3')}
+                onClick={() => {
+                  if (page === 'chat') setCurrentUIPage('chat')
+                  else if (page === 'profile') setCurrentUIPage('profile')
+                  else if (page === 'friends') setCurrentUIPage('friends')
+                }}
+              >
+                {page}
               </div>
-              {/* Pager logo, simplified */}
-              <div className="cursor-pointer select-none mt-4 text-[10px] text-[white] font-bold mt-2 tracking-widest text-center" style={{ textShadow: '0 1px 4px #fff8' }}>
-                <div
-                  onClick={() => { playSound('/sound/click.mp3') }}
-                  className="font-black leading-[10px] bg-white/10 rounded p-1 border border-black" style={{ textShadow: '0 1px 8px #8cf8' }}>
-                  POCKIT<br /> NAVI
-                </div>
-              </div>
-            </div>
-            {/* Pager screen with glass effect, simplified */}
+            ))}
+          </div>
+          {/* Pager logo, simplified */}
+          <div className="cursor-pointer select-none mt-4 text-[10px] text-[white] font-bold mt-2 tracking-widest text-center" style={{ textShadow: '0 1px 4px #fff8' }}>
             <div
-              className="rounded-2xl border h-full flex-1 flex relative overflow-hidden"
-              style={{
-                background: '#b2d8b2', // muted green
-                boxShadow: 'inset 0 0 16px 2px #145214',
-              }}
-            >
-              {currentUIPage === 'chat' && <ChatBox
-                peerStates={peerStates}
-                chatMessages={chatMessages}
-                chatInput={chatInput}
-                setChatInput={setChatInput}
-                sendChat={sendChat}
-                setChatMessages={setChatMessages}
-              />}
-              {currentUIPage === 'profile' && <ProfilePage
-                myState={myState}
-                setMyState={setMyState}
-                sendPlayerState={sendPlayerState}
-              />}
-              {currentUIPage === 'friends' && <PeerList
-                peerStates={peerStates}
-                room={room}
-                sendChat={sendChat}
-              />}
+              onClick={() => { playSound('/sound/click.mp3') }}
+              className="font-black leading-[10px] bg-white/10 rounded p-1 border border-black" style={{ textShadow: '0 1px 8px #8cf8' }}>
+              POCKIT<br /> NAVI
             </div>
-
-
-            {/* Glossy overlays for depth, keep outer shell shine */}
-            <div className="absolute top-0 left-0 w-full h-full pointer-events-none rounded-[2.2rem] bg-gradient-to-tr from-white/40 via-white/0 to-white/20 opacity-70mix-blend-screen" />
           </div>
         </div>
+        {/* Pager screen with glass effect, simplified */}
+        <div
+          className="rounded-2xl border h-full flex-1 flex relative overflow-hidden"
+          style={{
+            background: '#b2d8b2', // muted green
+            boxShadow: 'inset 0 0 16px 2px #145214',
+          }}
+        >
+          {currentUIPage === 'chat' && <ChatBox
+            peerStates={peerStates}
+            chatMessages={chatMessages}
+            chatInput={chatInput}
+            setChatInput={setChatInput}
+            sendChat={sendChat}
+            setChatMessages={setChatMessages}
+          />}
+          {currentUIPage === 'profile' && <ProfilePage
+            myState={myState}
+            setMyState={setMyState}
+            sendPlayerState={sendPlayerState}
+          />}
+          {currentUIPage === 'friends' && <PeerList
+            peerStates={peerStates}
+            room={room}
+            sendChat={sendChat}
+          />}
+        </div>
+
+
+        {/* Glossy overlays for depth, keep outer shell shine */}
+        <div className="absolute top-0 left-0 w-full h-full pointer-events-none rounded-[2.2rem] bg-gradient-to-tr from-white/40 via-white/0 to-white/20 opacity-70mix-blend-screen" />
       </div>
     </MPContext.Provider >
   )
