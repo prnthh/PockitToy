@@ -411,7 +411,7 @@ function ToyWallet() {
     };
 
     return (
-        <div className="flex items-center justify-center relative">
+        <div className="flex items-center justify-center">
             <div className={`bg-gray-800/20 border rounded-full p-0.5 px-2 flex items-center space-x-3 min-w-0 ${showPinInput ? 'ring-2 ring-blue-400' : ''} transition-all`}>
                 <button
                     onClick={() => {

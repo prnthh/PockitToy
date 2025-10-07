@@ -1,0 +1,83 @@
+# Sample workflow for building and deploying a Next.js site to GitHub Pages
+#
+# To get started with Next.js see: https://nextjs.org/docs/getting-started
+#
+name: Deploy Vite site to Pages
+
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: 'npm'
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+        with:
+          # Vite is a static site generator; this helps the Pages action know what to expect.
+          static_site_generator: vite
+
+      - name: Restore cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            web/node_modules
+            ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('web/**/package-lock.json', 'web/**/yarn.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+
+      - name: Install dependencies
+        run: |
+          cd web
+          if [ -f yarn.lock ]; then
+            yarn --frozen-lockfile
+          else
+            npm ci
+          fi
+
+      - name: Build (Vite)
+        run: |
+          cd web
+          # prefer package script; fall back to yarn if npm isn't available
+          if command -v npm >/dev/null 2>&1; then
+            npm run build
+          else
+            yarn build
+          fi
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./web/dist
+
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

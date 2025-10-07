@@ -165,7 +165,7 @@ export default function MP({ appId = 'pockit.world', roomId, children }: { appId
   return (
     <MPContext.Provider value={{ peerStates }}>
       {children}
-      <div className='fixed top-0 left-0 w-screen h-screen overflow-hidden pointer-events-none select-none z-50'>
+      <div className='fixed top-0 left-0 w-screen h-screen bg-red-500 pointer-events-none select-none z-50'>
         <div className={`transition-all pointer-events-auto flex flex-col`}>
           <div
             className="h-[220px] w-[92vw] md:w-[400px] flex flex-row items-center rounded-[2.2rem] text-black bg-gradient-to-br from-[#2229] to-[#2226] p-4 font-sans shadow-[inset_-8px_8px_6px_-8px_#ffffff,inset_8px_-8px_6px_-8px_#000000]"
