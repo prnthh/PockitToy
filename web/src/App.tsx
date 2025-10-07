@@ -1,4 +1,3 @@
-import { useEffect, useState } from 'react';
 import './App.css'
 import PockitToy from './PockitConsole/MP'
 import { AudioProvider } from './shared/AudioProvider'
