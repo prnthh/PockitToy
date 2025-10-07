@@ -1,12 +1,12 @@
-import { useContext, useEffect, useRef } from "react"
+import { useContext, useEffect, useRef, type ReactNode } from "react"
 import { MPContext, type PeerState } from "./MP"
 
 export default function ChatBox({ consoleMessages, chatInput, setChatInput, sendChat, setConsoleMessages }: {
-    consoleMessages: Array<{ peer: string, message: string }>,
+    consoleMessages: Array<{ peer: string, message: string | ReactNode }>,
     chatInput: string,
     setChatInput: React.Dispatch<React.SetStateAction<string>>,
     sendChat: (msg: string) => void,
-    setConsoleMessages: React.Dispatch<React.SetStateAction<Array<{ peer: string, message: string }>>>
+    setConsoleMessages: React.Dispatch<React.SetStateAction<Array<{ peer: string, message: string | ReactNode }>>>
 }) {
     const { peerStates, myState } = useContext(MPContext);
     const chatListRef = useRef<HTMLDivElement>(null)
@@ -18,9 +18,11 @@ export default function ChatBox({ consoleMessages, chatInput, setChatInput, send
         }
     }, [consoleMessages])
 
+    const isMe = (peerId: string) => { return peerId === 'me' }
+    const myName = myState?.profile?.name || 'me';
+
     return (
         <div className='flex flex-col w-full'>
-            {JSON.stringify(peerStates, null, 2)}
             {/* LCD display area */}
             <div
                 ref={chatListRef}
@@ -36,8 +38,8 @@ export default function ChatBox({ consoleMessages, chatInput, setChatInput, send
                             animationTimingFunction: 'ease',
                         }}
                     >
-                        <span className="text-[#1976d2] font-bold">
-                            {msg.peer == 'me' ? myState?.profile.name : peerStates[msg.peer]?.profile?.name || msg.peer.slice(0, 8)}
+                        <span className={`${isMe(msg.peer) ? 'text-[#000eee]' : peerStates[msg.peer]?.profile?.name ? 'text-[#1976d2]' : ''} font-bold`}>
+                            {isMe(msg.peer) ? myName : peerStates[msg.peer]?.profile?.name || msg.peer.slice(0, 8)}
                         </span>
                         <span>: {msg.message}</span>
                     </div>
@@ -59,7 +61,9 @@ export default function ChatBox({ consoleMessages, chatInput, setChatInput, send
                 </style>
             </div>
             <div className="flex flex-row border-t bg-black/20 pb-1 px-1">
-                <span className="text-[#205b78] font-bold pr-1">{myState?.profile.name || 'anon'}:</span>
+                <span className={`${isMe('me') ? 'text-[#000eee]' : 'text-[#1976d2]'} font-bold pr-1`}>
+                    {myState?.profile.name || 'anon'}:
+                </span>
                 <input
                     type="text"
                     value={chatInput}

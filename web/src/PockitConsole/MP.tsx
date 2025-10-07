@@ -1,7 +1,7 @@
 "use client";
 
-import { joinRoom } from 'trystero'
-import { useEffect, useState, createContext, useMemo } from 'react'
+import { joinRoom, type DataPayload } from 'trystero'
+import { useEffect, useState, createContext, useMemo, useRef, type ReactNode } from 'react'
 import PeerList from './PeerList'
 import ProfilePage from './ProfilePage'
 import ChatBox from './ChatBox'
@@ -38,64 +38,40 @@ export default function MP({ appId = 'pockit.world', roomId, children }: { appId
   const room = joinRoom({ appId, password: undefined }, roomId)
   const [sendPlayerState, getPeerStates] = room.makeAction('peerState')
   const [myState, setMyState] = useState<{ position: [number, number, number], profile: { [key: string]: any } }>({ position: [0, 0, 0], profile: {} })
+  const myStateRef = useRef(myState)
   const [peerStates, setPeerStates] = useState<Record<string, PeerState>>({})
+
+  // Keep ref in sync with state
+  useEffect(() => {
+    myStateRef.current = myState
+  }, [myState])
 
   // Chat state
   const [sendChat, getChat] = room.makeAction('chat')
   const [chatInput, setChatInput] = useState('')
-  const [consoleMessages, setConsoleMessages] = useState<Array<{ peer: string, message: string }>>([])
+  const [consoleMessages, setConsoleMessages] = useState<Array<{ peer: string, message: string | ReactNode }>>([])
   const { playSound } = useAudio();
 
-  // Listen for incoming chat messages
-  useEffect(() => {
-    setConsoleMessages([
-      { peer: 'system', message: `Connected to pockit.world: ${roomId}` }
-    ]) // Clear chat on room change
-    getChat((message, peer) => {
-      if (typeof message === 'string') {
-        if (message.startsWith('/')) {
-          const command = message.slice(1).trim().split(' ')[0]
-          if (command === 'event') {
-            if (peer == roomId) return; // Ignore events from the same room
-            const eventData = message.slice(7).trim()
-            // Handle room events
-            window.dispatchEvent(new CustomEvent('mp-event', { detail: JSON.parse(eventData) }))
-            return
-          }
-        }
-        setConsoleMessages(msgs => [...msgs, { peer, message }])
-        // Update peerStates with latest message and timestamp
-        setPeerStates(states => {
-          if (!peer) return states;
-          const now = Date.now();
-          return {
-            ...states,
-            [peer]: {
-              ...states[peer],
-              latestMessage: { message, timestamp: now }
-            }
-          }
-        })
-      }
-    })
-  }, [])
-
   const handlePeerJoin = (peer: string) => {
-    console.log('Peer joined:', peer, myState)
-    sendPlayerState(myState, peer)
-    setConsoleMessages(msgs => [...msgs, { peer: 'system', message: `Peer joined: ${peer.slice(0, 8)}` }])
+    console.log('Peer joined:', peer)
+    sendPlayerState(myStateRef.current, peer)
   }
   const handlePeerLeave = (peer: string) => {
     setPeerStates(states => {
+      const peerState = states[peer];
+      if (peerState && peerState.profile)
+        setConsoleMessages(msgs => [...msgs, { peer: 'system', message: <div className='inline'><span className="font-bold">{peerState.profile.name || peer.slice(0, 8)}</span> left</div> }])
+
       const newStates = { ...states }
       delete newStates[peer]
       return newStates
     })
-    setConsoleMessages(msgs => [...msgs, { peer: 'system', message: `Peer left: ${peer.slice(0, 8)}` }])
   }
 
   const handlePeerState = (state: any, peer: string) => {
     console.log('Received state from', peer, state)
+    setConsoleMessages(msgs => [...msgs, { peer: 'system', message: <div className='inline'><span className="font-bold">{state.profile.name || peer.slice(0, 8)}</span> connected</div> }])
+
     if (
       state &&
       Array.isArray(state.position) &&
@@ -116,15 +92,44 @@ export default function MP({ appId = 'pockit.world', roomId, children }: { appId
     }
   }
 
+  const handleChatMessage = (data: DataPayload, peer: string) => {
+    if (typeof data === 'string') {
+      if (data.startsWith('/')) {
+        const command = data.slice(1).trim().split(' ')[0]
+        if (command === 'event') {
+          if (peer == roomId) return; // Ignore events from the same room
+          const eventData = data.slice(7).trim()
+          // Handle room events
+          window.dispatchEvent(new CustomEvent('mp-event', { detail: JSON.parse(eventData) }))
+          return
+        }
+      }
+      setConsoleMessages(msgs => [...msgs, { peer, message: data }])
+      // Update peerStates with latest message and timestamp
+      setPeerStates(states => {
+        if (!peer) return states;
+        const now = Date.now();
+        return {
+          ...states,
+          [peer]: {
+            ...states[peer],
+            latestMessage: { message: data, timestamp: now }
+          }
+        }
+      })
+    }
+  }
+
   // Setup Trystero event listeners for peer join/leave and state updates
   useEffect(() => {
     room.onPeerJoin(handlePeerJoin)
     room.onPeerLeave(handlePeerLeave)
     getPeerStates(handlePeerState)
+    getChat(handleChatMessage)
 
-    // Cleanup: Trystero does not provide off/on removal, but if it did, add here
-    // Return cleanup if needed
-    // return () => { ... }
+    setConsoleMessages([
+      { peer: 'system', message: <div>Connected to pockit.world: {roomId} ❣️</div> }
+    ])
   }, [room, sendPlayerState, getPeerStates])
 
   // Listen for local position updates from parent
@@ -169,7 +174,6 @@ export default function MP({ appId = 'pockit.world', roomId, children }: { appId
       }
     });
   }, [getBlob, setMyState]);
-
 
   const pages = useMemo(() => ({
     profile: ProfilePage,
