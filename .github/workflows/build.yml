@@ -29,7 +29,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "20"
-          cache: 'npm'
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
@@ -43,28 +42,19 @@ jobs:
           path: |
             web/node_modules
             ~/.npm
-          key: ${{ runner.os }}-node-${{ hashFiles('web/**/package-lock.json', 'web/**/yarn.lock') }}
+          key: ${{ runner.os }}-node-${{ hashFiles('web/**/package-lock.json') }}
           restore-keys: |
             ${{ runner.os }}-node-
 
       - name: Install dependencies
         run: |
           cd web
-          if [ -f yarn.lock ]; then
-            yarn --frozen-lockfile
-          else
-            npm ci
-          fi
+          npm ci
 
       - name: Build (Vite)
         run: |
           cd web
-          # prefer package script; fall back to yarn if npm isn't available
-          if command -v npm >/dev/null 2>&1; then
-            npm run build
-          else
-            yarn build
-          fi
+          npm run build
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
