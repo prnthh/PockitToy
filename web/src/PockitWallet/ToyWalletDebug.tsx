@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 
 interface SecureAccount { address: `0x${string}` }
 
@@ -35,7 +35,6 @@ export default function ToyWalletDebug({
     walletState,
     initialTargetPublicKey,
     error,
-    setError,
     handleCopyAddress,
     handleCopyPrivateKey,
     handleSignMessage,
@@ -52,7 +51,7 @@ export default function ToyWalletDebug({
     const [unsealedMessage, setUnsealedMessage] = useState('');
     const [unsealedFrom, setUnsealedFrom] = useState<string | undefined>();
     const [targetPublicKey, setTargetPublicKey] = useState(initialTargetPublicKey);
-    const [copyFeedback, setCopyFeedback] = useState(false);
+    const [, setCopyFeedback] = useState(false);
     const [useIdentityMode, setUseIdentityMode] = useState(true);
 
     // Update target public key when wallet changes

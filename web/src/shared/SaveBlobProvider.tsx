@@ -1,13 +1,13 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useState } from 'react';
 
 const SaveBlobContext = createContext<{
     saveBlob: (key: string, blob: Blob) => Promise<void>,
     getBlob: (key: string) => Promise<Blob | null>,
 }>({
-    saveBlob: async (key: string, blob: Blob) => { },
-    getBlob: async (key: string) => null,
+    saveBlob: async () => { },
+    getBlob: async () => null,
 });
 
 export const useSaveBlob = () => useContext(SaveBlobContext);

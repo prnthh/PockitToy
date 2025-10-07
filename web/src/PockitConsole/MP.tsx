@@ -1,7 +1,7 @@
 "use client";
 
 import { joinRoom } from 'trystero'
-import { useEffect, useState, useRef, createContext, useMemo } from 'react'
+import { useEffect, useState, createContext } from 'react'
 import PeerList from './PeerList'
 import ProfilePage from './ProfilePage'
 import ChatBox from './ChatBox'
@@ -176,7 +176,7 @@ export default function MP({ appId = 'pockit.world', roomId, children }: { appId
             <div className="flex flex-col items-center justify-end min-w-[80px] text-white pr-2">
               {/* Pager nav buttons, simplified */}
               <div className="flex flex-col gap-2 mt-1">
-                {['profile', 'chat', 'friends'].map((page, index) => (
+                {['profile', 'chat', 'friends'].map((page) => (
                   <div
                     key={page}
                     className={`${page === currentUIPage ? 'bg-[#1976d2]' : 'bg-gradient-to-br from-[#1976d2] to-[#8cf]'} hover:scale-102 active:scale-95 transition-all h-5 px-1 cursor-pointer rounded-full border shadow flex items-center justify-center font-bold text-[13px]`}

@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import { useState } from 'react'
 
 type PeerState = { position: [number, number, number], profile: { [key: string]: any } }
 export default function PeerList({ peerStates, room, sendChat }: {

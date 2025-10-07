@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useRef, useState, useEffect, type ReactNode } from "react";
+import { createContext, useContext, useRef, useState, useEffect, type ReactNode } from "react";
 
 interface AudioProviderProps {
     children: ReactNode;

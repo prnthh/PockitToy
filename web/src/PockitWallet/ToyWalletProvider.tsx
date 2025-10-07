@@ -1,6 +1,6 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
-import { hexToBytes, toHex } from "viem";
+import { hexToBytes } from "viem";
 import ToyWalletDebug from "./ToyWalletDebug";
 import * as secp from '@noble/secp256k1';
 
