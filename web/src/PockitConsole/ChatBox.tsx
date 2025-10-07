@@ -1,5 +1,5 @@
 import { useContext, useEffect, useRef, type ReactNode } from "react"
-import { MPContext, type PeerState } from "./MP"
+import { MPContext } from "./MP"
 
 export default function ChatBox({ consoleMessages, chatInput, setChatInput, sendChat, setConsoleMessages }: {
     consoleMessages: Array<{ peer: string, message: string | ReactNode }>,
