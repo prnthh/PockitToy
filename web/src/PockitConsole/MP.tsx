@@ -1,7 +1,7 @@
 "use client";
 
 import { joinRoom } from 'trystero'
-import { useEffect, useState, createContext } from 'react'
+import { useEffect, useState, createContext, useMemo } from 'react'
 import PeerList from './PeerList'
 import ProfilePage from './ProfilePage'
 import ChatBox from './ChatBox'
@@ -13,7 +13,14 @@ export type PeerState = {
   profile: { [key: string]: any },
   latestMessage?: { message: string, timestamp: number }
 }
-export const MPContext = createContext<{ peerStates: Record<string, PeerState> }>({ peerStates: {} })
+export const MPContext = createContext<{
+  room: any,
+  peerStates: Record<string, PeerState>
+  myState?: PeerState & {}
+}>({
+  room: null,
+  peerStates: {}
+})
 
 export default function MP({ appId = 'pockit.world', roomId, children }: { appId?: string, roomId: string, children?: React.ReactNode }) {
   // Suppress 'User-Initiated Abort' RTC errors in the console
@@ -36,12 +43,12 @@ export default function MP({ appId = 'pockit.world', roomId, children }: { appId
   // Chat state
   const [sendChat, getChat] = room.makeAction('chat')
   const [chatInput, setChatInput] = useState('')
-  const [chatMessages, setChatMessages] = useState<Array<{ peer: string, message: string }>>([])
+  const [consoleMessages, setConsoleMessages] = useState<Array<{ peer: string, message: string }>>([])
   const { playSound } = useAudio();
 
   // Listen for incoming chat messages
   useEffect(() => {
-    setChatMessages([
+    setConsoleMessages([
       { peer: 'system', message: `Connected to pockit.world: ${roomId}` }
     ]) // Clear chat on room change
     getChat((message, peer) => {
@@ -56,7 +63,7 @@ export default function MP({ appId = 'pockit.world', roomId, children }: { appId
             return
           }
         }
-        setChatMessages(msgs => [...msgs, { peer, message }])
+        setConsoleMessages(msgs => [...msgs, { peer, message }])
         // Update peerStates with latest message and timestamp
         setPeerStates(states => {
           if (!peer) return states;
@@ -73,41 +80,44 @@ export default function MP({ appId = 'pockit.world', roomId, children }: { appId
     })
   }, [])
 
+  const handlePeerJoin = (peer: string) => {
+    console.log('Peer joined:', peer, myState)
+    sendPlayerState(myState, peer)
+    setConsoleMessages(msgs => [...msgs, { peer: 'system', message: `Peer joined: ${peer.slice(0, 8)}` }])
+  }
+  const handlePeerLeave = (peer: string) => {
+    setPeerStates(states => {
+      const newStates = { ...states }
+      delete newStates[peer]
+      return newStates
+    })
+    setConsoleMessages(msgs => [...msgs, { peer: 'system', message: `Peer left: ${peer.slice(0, 8)}` }])
+  }
+
+  const handlePeerState = (state: any, peer: string) => {
+    console.log('Received state from', peer, state)
+    if (
+      state &&
+      Array.isArray(state.position) &&
+      state.position.length === 3 &&
+      state.position.every((n: any) => typeof n === 'number') &&
+      typeof state.profile === 'object'
+    ) {
+      setPeerStates(states => {
+        const prev = states[peer] || {};
+        return {
+          ...states,
+          [peer]: {
+            ...prev,
+            ...state,
+          }
+        }
+      })
+    }
+  }
+
   // Setup Trystero event listeners for peer join/leave and state updates
   useEffect(() => {
-    const handlePeerJoin = (peer: string) => {
-      console.log('Peer joined:', peer, myState)
-      sendPlayerState(myState, peer)
-      setChatMessages(msgs => [...msgs, { peer: 'system', message: `Peer joined: ${peer.slice(0, 8)}` }])
-    }
-    const handlePeerLeave = (peer: string) => {
-      setPeerStates(states => {
-        const newStates = { ...states }
-        delete newStates[peer]
-        return newStates
-      })
-      setChatMessages(msgs => [...msgs, { peer: 'system', message: `Peer left: ${peer.slice(0, 8)}` }])
-    }
-    const handlePeerState = (state: any, peer: string) => {
-      if (
-        state &&
-        Array.isArray(state.position) &&
-        state.position.length === 3 &&
-        state.position.every((n: any) => typeof n === 'number') &&
-        typeof state.profile === 'object'
-      ) {
-        setPeerStates(states => {
-          const prev = states[peer] || {};
-          return {
-            ...states,
-            [peer]: {
-              ...prev,
-              ...state,
-            }
-          }
-        })
-      }
-    }
     room.onPeerJoin(handlePeerJoin)
     room.onPeerLeave(handlePeerLeave)
     getPeerStates(handlePeerState)
@@ -126,7 +136,7 @@ export default function MP({ appId = 'pockit.world', roomId, children }: { appId
     }
     window.addEventListener('mp-pos', handler as EventListener)
     return () => window.removeEventListener('mp-pos', handler as EventListener)
-  }, [myState])
+  }, [])
 
   // Listen for room events from parent, room is stateless
   useEffect(() => {
@@ -160,10 +170,18 @@ export default function MP({ appId = 'pockit.world', roomId, children }: { appId
     });
   }, [getBlob, setMyState]);
 
-  const [currentUIPage, setCurrentUIPage] = useState<'chat' | 'profile' | 'friends'>('chat')
+
+  const pages = useMemo(() => ({
+    profile: ProfilePage,
+    console: ChatBox,
+    friends: PeerList
+  }), []);
+
+  const [currentUIPage, setCurrentUIPage] = useState<keyof typeof pages>('console')
+
 
   return (
-    <MPContext.Provider value={{ peerStates }}>
+    <MPContext.Provider value={{ room, peerStates, myState }}>
       {children}
       <div
         className="h-[220px] w-[92vw] md:w-[400px] flex flex-row items-center rounded-[2.2rem] text-black bg-gradient-to-br from-[#2229] to-[#2226] p-4 font-sans shadow-[inset_-8px_8px_6px_-8px_#ffffff,inset_8px_-8px_6px_-8px_#000000]"
@@ -174,7 +192,7 @@ export default function MP({ appId = 'pockit.world', roomId, children }: { appId
         <div className="flex flex-col items-center justify-end min-w-[80px] text-white pr-2">
           {/* Pager nav buttons, simplified */}
           <div className="flex flex-col gap-2 mt-1">
-            {['profile', 'chat', 'friends'].map((page) => (
+            {Object.keys(pages).map((page) => (
               <div
                 key={page}
                 className={`${page === currentUIPage ? 'bg-[#1976d2]' : 'bg-gradient-to-br from-[#1976d2] to-[#8cf]'} hover:scale-102 active:scale-95 transition-all h-5 px-1 cursor-pointer rounded-full border shadow flex items-center justify-center font-bold text-[13px]`}
@@ -184,9 +202,7 @@ export default function MP({ appId = 'pockit.world', roomId, children }: { appId
                 onMouseEnter={() => playSound('/sound/click.mp3')}
                 onPointerDown={() => playSound('/sound/click2.mp3')}
                 onClick={() => {
-                  if (page === 'chat') setCurrentUIPage('chat')
-                  else if (page === 'profile') setCurrentUIPage('profile')
-                  else if (page === 'friends') setCurrentUIPage('friends')
+                  setCurrentUIPage(page as keyof typeof pages)
                 }}
               >
                 {page}
@@ -206,17 +222,16 @@ export default function MP({ appId = 'pockit.world', roomId, children }: { appId
         <div
           className="rounded-2xl border h-full flex-1 flex relative overflow-hidden"
           style={{
-            background: '#b2d8b2', // muted green
-            boxShadow: 'inset 0 0 16px 2px #145214',
+            background: currentUIPage == 'profile' ? 'linear-gradient(rgba(190, 190, 190, 1), rgba(182, 182, 182, 1))' : '#b2d8b2',
+            boxShadow: 'inset 0 0 16px 2px #5f5f5fff, rgb(91, 91, 91) -1px 1px 1px inset, rgb(5, 5, 5) -1px 1px 3px inset',
           }}
         >
-          {currentUIPage === 'chat' && <ChatBox
-            peerStates={peerStates}
-            chatMessages={chatMessages}
+          {currentUIPage === 'console' && <ChatBox
             chatInput={chatInput}
             setChatInput={setChatInput}
             sendChat={sendChat}
-            setChatMessages={setChatMessages}
+            consoleMessages={consoleMessages}
+            setConsoleMessages={setConsoleMessages}
           />}
           {currentUIPage === 'profile' && <ProfilePage
             myState={myState}
@@ -224,8 +239,6 @@ export default function MP({ appId = 'pockit.world', roomId, children }: { appId
             sendPlayerState={sendPlayerState}
           />}
           {currentUIPage === 'friends' && <PeerList
-            peerStates={peerStates}
-            room={room}
             sendChat={sendChat}
           />}
         </div>

@@ -95,7 +95,7 @@ export default function ToyWalletDebug({
         setTimeout(() => setCopyFeedback(false), 2000);
     };
     return (
-        <div className="fixed top-[50vh] right-[50vw] bg-gray-900/95 backdrop-blur-sm border border-gray-700 rounded-lg shadow-2xl text-xs max-w-4xl w-full z-50">
+        <div className="fixed -top-[calc(50vh-100%)] left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-gray-900/95 backdrop-blur-sm border border-gray-700 rounded-lg shadow-2xl text-xs max-w-4xl w-full z-50">
             {/* Header */}
             <div className="bg-gray-800/50 px-3 py-2 border-b border-gray-700 flex items-center justify-between">
                 <div className="flex items-center space-x-2">

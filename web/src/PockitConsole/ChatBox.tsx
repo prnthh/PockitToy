@@ -1,14 +1,14 @@
-import { useEffect, useRef } from "react"
-import { type PeerState } from "./MP"
+import { useContext, useEffect, useRef } from "react"
+import { MPContext, type PeerState } from "./MP"
 
-export default function ChatBox({ peerStates, chatMessages, chatInput, setChatInput, sendChat, setChatMessages }: {
-    peerStates: Record<string, PeerState>,
-    chatMessages: Array<{ peer: string, message: string }>,
+export default function ChatBox({ consoleMessages, chatInput, setChatInput, sendChat, setConsoleMessages }: {
+    consoleMessages: Array<{ peer: string, message: string }>,
     chatInput: string,
     setChatInput: React.Dispatch<React.SetStateAction<string>>,
     sendChat: (msg: string) => void,
-    setChatMessages: React.Dispatch<React.SetStateAction<Array<{ peer: string, message: string }>>>
+    setConsoleMessages: React.Dispatch<React.SetStateAction<Array<{ peer: string, message: string }>>>
 }) {
+    const { peerStates, myState } = useContext(MPContext);
     const chatListRef = useRef<HTMLDivElement>(null)
 
     // Auto-scroll to bottom on new messages
@@ -16,26 +16,29 @@ export default function ChatBox({ peerStates, chatMessages, chatInput, setChatIn
         if (chatListRef.current) {
             chatListRef.current.scrollTop = chatListRef.current.scrollHeight
         }
-    }, [chatMessages])
+    }, [consoleMessages])
 
     return (
         <div className='flex flex-col w-full'>
+            {JSON.stringify(peerStates, null, 2)}
             {/* LCD display area */}
             <div
                 ref={chatListRef}
-                className="h-full overflow-y-auto text-[13px] mb-1 font-mono noscrollbar px-1 py-1"
+                className="h-full overflow-y-auto text-[13px] mb-1 font-mono noscrollbar px-1 py-1 mt-1 mx-1"
             >
-                {chatMessages.map((msg, i) => (
+                {consoleMessages.map((msg, i) => (
                     <div
                         key={i}
-                        className="mb-0.5 border rounded px-1 py-0.5 bg-white/10 animate-[zoomIn_0.3s_ease]"
+                        className="text-left mb-0.5 border rounded-md px-1 py-0.5 bg-white/10 animate-[zoomIn_0.3s_ease]"
                         style={{
                             animationName: 'zoomIn',
                             animationDuration: '0.3s',
                             animationTimingFunction: 'ease',
                         }}
                     >
-                        <span className="text-[#1976d2] font-bold">{peerStates[msg.peer]?.profile?.name || msg.peer.slice(0, 8)}</span>
+                        <span className="text-[#1976d2] font-bold">
+                            {msg.peer == 'me' ? myState?.profile.name : peerStates[msg.peer]?.profile?.name || msg.peer.slice(0, 8)}
+                        </span>
                         <span>: {msg.message}</span>
                     </div>
                 ))}
@@ -56,7 +59,7 @@ export default function ChatBox({ peerStates, chatMessages, chatInput, setChatIn
                 </style>
             </div>
             <div className="flex flex-row border-t bg-black/20 pb-1 px-1">
-                <span className="text-[#205b78] font-bold pr-1">me:</span>
+                <span className="text-[#205b78] font-bold pr-1">{myState?.profile.name || 'anon'}:</span>
                 <input
                     type="text"
                     value={chatInput}
@@ -64,7 +67,7 @@ export default function ChatBox({ peerStates, chatMessages, chatInput, setChatIn
                     onKeyDown={e => {
                         if (e.key === 'Enter' && chatInput.trim()) {
                             sendChat(chatInput)
-                            setChatMessages(msgs => [...msgs, { peer: 'me', message: chatInput }])
+                            setConsoleMessages(msgs => [...msgs, { peer: 'me', message: chatInput }])
                             setChatInput('')
                         }
                         e.stopPropagation()

@@ -1,11 +1,10 @@
-import { useState } from 'react'
+import { useContext, useState } from 'react'
+import { MPContext } from './MP';
 
-type PeerState = { position: [number, number, number], profile: { [key: string]: any } }
-export default function PeerList({ peerStates, room, sendChat }: {
-    peerStates: Record<string, PeerState>,
-    room: any,
+export default function PeerList({ sendChat }: {
     sendChat: (msg: string, peer?: string) => void
 }) {
+    const { peerStates, room } = useContext(MPContext);
     const [peerOptions, setPeerOptions] = useState<string | null>(null)
     const [showDM, setShowDM] = useState<string | null>(null)
     const [dmInput, setDmInput] = useState('')
