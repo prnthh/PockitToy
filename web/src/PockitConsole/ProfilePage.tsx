@@ -82,6 +82,16 @@ export default function ProfilePage({ myState, setMyState, sendPlayerState }: {
                     }
                 }} className="w-full p-2 rounded border-none bg-[#333] text-white text-[10px] font-mono mb-2"
             />
+            <div className="text-xs" onClick={() => {
+                if ('serviceWorker' in navigator) {
+                    navigator.serviceWorker.ready.then((registration) => {
+                        registration.update();  // Triggers fetch for new SW
+                    });
+                }
+            }}>
+                build version: cool-test
+            </div>
+
         </div>
     );
 }
