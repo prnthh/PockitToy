@@ -1,6 +1,8 @@
 import { useContext, useState } from 'react'
 import { MPContext } from './MP';
 
+const buttonStyle = `bg-black/20 text-[#8cf] rounded px-1.5 py-1.5 text-left cursor-pointer`
+
 export default function PeerList({ sendChat }: {
     sendChat: (msg: string, peer?: string) => void
 }) {
@@ -9,47 +11,54 @@ export default function PeerList({ sendChat }: {
     const [showDM, setShowDM] = useState<string | null>(null)
     const [dmInput, setDmInput] = useState('')
     return (
-        <div className="w-full p-2">
+        <div className="w-full p-2 h-full overflow-y-auto noscrollbar">
             <div className="font-bold mb-1">{Object.keys(peerStates).length} Peers</div>
-            <ul className="list-none m-0 p-0">
+            <div className="w-full m-0 p-0">
                 {Object.entries(peerStates).map(([peerId, state]) => (
-                    <li key={peerId} className="text-[12px] mb-0.5 relative">
-                        {peerId.slice(0, 8)}
-                        {/* Example: show position and profile */}
-                        {/* <span className="ml-1 text-[#aaa]">({state.position.join(', ')})</span> */}
-                        <button
-                            className="ml-1.5 text-[10px] px-1.5 py-0.5 rounded bg-[#333]/20 border-none cursor-pointer"
-                            onClick={e => {
-                                e.stopPropagation();
-                                setPeerOptions(peerOptions === peerId ? null : peerId);
-                            }}
-                        >
-                            &#x22EE;
-                        </button>
-                        {peerOptions === peerId && (
-                            <div className="absolute top-[18px] bg-[#222] border border-[#444] rounded-lg z-[1002] min-w-[80px]">
-                                <button
-                                    className="block w-full bg-none text-[#8cf] border-none px-1.5 py-1.5 text-left cursor-pointer"
-                                    onClick={() => {
-                                        setShowDM(peerId);
-                                        setPeerOptions(null);
-                                    }}
-                                >DM</button>
-                                <button
-                                    className="block w-full bg-none text-[#f88] border-none px-1.5 py-1.5 text-left cursor-pointer"
-                                    onClick={() => {
-                                        try {
-                                            const peerConn = room.getPeers()[peerId];
-                                            if (peerConn) peerConn.close();
-                                        } catch (err) { }
-                                        setPeerOptions(null);
-                                    }}
-                                >Kick</button>
-                            </div>
-                        )}<br />
-                        {state.profile && <span className="">{JSON.stringify(state.profile)}</span>}
+                    <div key={peerId} className="flex flex-col text-[12px] mb-0.5 relative cursor-pointer"
+                        onClick={e => {
+                            e.stopPropagation();
+                            setPeerOptions(peerOptions === peerId ? null : peerId);
+                        }}
+                        onPointerLeave={() => peerOptions === peerId && setPeerOptions(null)}
+                    >
+                        <div className='flex justify-between items-center bg-black/15 rounded p-1 px-2 hover:bg-black/20 hover:scale-101 transition-all'
 
-                    </li>
+                        >
+                            {state.profile.name || peerId.slice(0, 8)}
+                            {/* Example: show position and profile */}
+                            {/* <span className="ml-1 text-[#aaa]">({state.position.join(', ')})</span> */}
+                        </div>
+                        {peerOptions === peerId && (
+                            <div className=" bg-black/25 border rounded mt-1 min-w-[80px] flex flex-col"
+                            >
+                                <div className='flex gap-x-1 p-1'>
+
+                                    <button
+                                        className={buttonStyle}
+                                        onClick={() => {
+                                            setShowDM(peerId);
+                                            setPeerOptions(null);
+                                        }}
+                                    >DM</button>
+                                    <button
+                                        className={buttonStyle}
+                                        onClick={() => {
+                                            try {
+                                                const peerConn = room.getPeers()[peerId];
+                                                if (peerConn) peerConn.close();
+                                            } catch (err) { }
+                                            setPeerOptions(null);
+                                        }}
+                                    >Block</button>
+                                </div>
+                                <div>
+                                    {state.profile && <textarea className="text-white p-1" value={JSON.stringify(state.profile)} />}
+
+                                </div>
+                            </div>
+                        )}
+                    </div>
                 ))}
                 {showDM && (
                     <div className="fixed left-0 top-0 w-full h-full bg-black/50 z-[2000] flex items-center justify-center rounded-4xl" onClick={() => setShowDM(null)}>
@@ -80,7 +89,7 @@ export default function PeerList({ sendChat }: {
                         </div>
                     </div>
                 )}
-            </ul>
+            </div>
         </div>
     )
 }
