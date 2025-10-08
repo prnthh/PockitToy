@@ -188,7 +188,7 @@ export default function MP({ appId = 'pockit.world', roomId, children }: { appId
     <MPContext.Provider value={{ room, peerStates, myState }}>
       {children}
       <div
-        className="h-[220px] w-[92vw] md:w-[400px] flex flex-row items-center rounded-[2.2rem] text-black bg-gradient-to-br from-[#2229] to-[#2226] p-4 font-sans shadow-[inset_-8px_8px_6px_-8px_#ffffff,inset_8px_-8px_6px_-8px_#000000]"
+        className={`w-full h-full flex flex-row items-center rounded-[2.2rem] text-black bg-gradient-to-br from-[#2229] to-[#2226] p-4 font-sans shadow-[inset_-8px_8px_6px_-8px_#ffffff,inset_8px_-8px_6px_-8px_#000000]`}
         style={{
           backdropFilter: 'blur(16px)',
         }}
