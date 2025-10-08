@@ -25,7 +25,7 @@ export default function PeerList({ sendChat }: {
                         <div className='flex justify-between items-center bg-black/15 rounded p-1 px-2 hover:bg-black/20 hover:scale-101 transition-all'
 
                         >
-                            {state.profile.name || peerId.slice(0, 8)}
+                            {state?.profile?.name || peerId.slice(0, 8)}
                             {/* Example: show position and profile */}
                             {/* <span className="ml-1 text-[#aaa]">({state.position.join(', ')})</span> */}
                         </div>

@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 body {
-  min-height: calc(100% + env(safe-area-inset-top));
+  min-height: calc(100% + env(safe-area-inset-top) + env(safe-area-inset-bottom));
 
   /* animated tiling noise fractal SVG */
   background-color: #393939;
