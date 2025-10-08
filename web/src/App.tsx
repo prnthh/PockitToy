@@ -2,7 +2,6 @@ import './App.css'
 import PockitToy from './PockitConsole/MP'
 import { AudioProvider } from './shared/AudioProvider'
 import SaveBlobProvider from './shared/SaveBlobProvider'
-import SkyShader from './shared/GLSLCanvas';
 import { useEffect, useState } from 'react';
 
 function App() {
