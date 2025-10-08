@@ -95,7 +95,7 @@ gl_FragColor = vec4(color, 1.0);
         };
     }, []);
 
-    return <canvas ref={canvasRef} className="pointer-events-none select-none absolute inset-0 w-full h-full" />;
+    return <canvas ref={canvasRef} className="fixed top-0 left-0 pointer-events-none select-none absolute inset-0 w-full h-[108vh]" />;
 };
 
 export default SkyShader;

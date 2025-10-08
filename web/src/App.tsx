@@ -3,6 +3,7 @@ import PockitToy from './PockitConsole/MP'
 import { AudioProvider } from './shared/AudioProvider'
 import SaveBlobProvider from './shared/SaveBlobProvider'
 import SkyShader from './shared/GLSLCanvas';
+import { useEffect, useState } from 'react';
 
 function App() {
 
@@ -19,15 +20,29 @@ function App() {
 
 const IframePositionWrapper = ({ children }: { children: React.ReactNode }) => {
   const isInsideIframe = window && (window.self !== window.top);
+
   const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
 
+  // @ts-expect-error only exists on iOS
+  const isIOSStandalone = window.navigator.standalone
+  // const isAndroidStandalone = window.matchMedia('(display-mode: standalone)').matches;
+
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    if (loaded) return;
+    setLoaded(true);
+  }, []);
+
   return isInsideIframe ? <div className='z-50'>{children}</div> :
-    <div className={`fixed w-screen ${isIOS ? '-mt-[4rem] h-[calc(100%+env(safe-area-inset-top))]' : 'h-screen'} pointer-events-none select-none z-50`}>
-      <SkyShader />
-      <div className={`${isIOS ? 'bottom-[calc(env(safe-area-inset-bottom)+4rem)]' : 'bottom-2'} left-1/2 -translate-x-1/2 absolute transition-all pointer-events-auto flex flex-col`}>
-        {children}
+    <>
+      {/* {loaded && <div className='bg-red-500'>{Array.from({ length: 100 }).map((_, i) => <div key={i} className=''>{i}</div>)}</div>} */}
+      <div className={`fixed overflow-hidden w-screen h-screen overflow-none pointer-events-none select-none z-50`}>
+        <div className={`fixed transition-all ease-in duration-500 ${!loaded ? '-bottom-[200px] scale-[80%]' : isIOSStandalone ? 'bottom-4' : isIOS ? 'bottom-4' : 'bottom-2'} left-1/2 -translate-x-1/2 absolute transition-all pointer-events-auto flex flex-col`}>
+          {children}
+        </div>
       </div>
-    </div>
+    </>
 }
 
 
