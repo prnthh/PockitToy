@@ -214,10 +214,10 @@ export default function MP({ appId = 'pockit.world', roomId, children }: { appId
             ))}
           </div>
           {/* Pager logo, simplified */}
-          <div className="cursor-pointer select-none mt-4 text-[10px] text-[white] font-bold mt-2 tracking-widest text-center" style={{ textShadow: '0 1px 4px #fff8' }}>
+          <div className="cursor-pointer select-none mt-6 text-[12px] font-bold mt-2 tracking-widest text-center" style={{ textShadow: '0 1px 4px #fff8' }}>
             <div
               onClick={() => { playSound('/sound/click.mp3') }}
-              className="font-black leading-[10px] bg-white/10 rounded p-1 border border-black" style={{ textShadow: '0 1px 8px #8cf8' }}>
+              className="text-shadow-[-1px_1px_#ffffffcc,_-1px_-1px_#000000cc] text-black font-black leading-[12px]" >
               POCKIT<br /> NAVI
             </div>
           </div>

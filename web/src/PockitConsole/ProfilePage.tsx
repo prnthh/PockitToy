@@ -33,33 +33,7 @@ export default function ProfilePage({ myState, setMyState, sendPlayerState }: {
     return (
         <div className="h-full w-full overflow-y-auto noscrollbar p-2">
             <Profile updateProfile={updateProfile} state={myState} />
-            <div className="flex justify-center gap-x-1">
-                {(['oni', 'milady']).map((avatar) => (
-                    <button
-                        key={avatar}
-                        onClick={() => {
-                            setMyState(state => {
-                                const newState = {
-                                    ...state,
-                                    profile: {
-                                        ...state.profile,
-                                        avatar: avatar
-                                    }
-                                }
-                                sendPlayerState(newState)
-                                return newState
-                            })
-                        }}
-                        className="text-[12px] px-3 py-1 rounded bg-gradient-to-r from-[#1976d2] to-[#8cf] font-bold border shadow mb-2 mt-1 cursor-pointer"
-                        style={{
-                            boxShadow: '0 2px 8px 0 #8cf8',
-                            textShadow: '0 1px 2px #2228',
-                        }}
-                    >
-                        {avatar}
-                    </button>
-                ))}
-            </div>
+
             <input
                 value={JSON.stringify(myState.profile)}
                 onChange={e => {
@@ -89,7 +63,7 @@ export default function ProfilePage({ myState, setMyState, sendPlayerState }: {
                     });
                 }
             }}>
-                build version: cool-test
+                build version: cool-rest
             </div>
 
         </div>
@@ -126,6 +100,24 @@ const Profile = ({ state, updateProfile }: {
         <div className="font-mono text-sm border my-1 text-center">
             <span className="flex justify-center w-full border-b">Achievements</span>
             <div className="py-2">no achievements yet. <br />keep clicking!</div>
+        </div>
+
+        <div className="flex justify-center gap-x-1">
+            {(['oni', 'milady']).map((avatar) => (
+                <button
+                    key={avatar}
+                    onClick={() => {
+                        updateProfile?.('avatar', avatar);
+                    }}
+                    className="text-[12px] px-3 py-1 rounded bg-gradient-to-r from-[#1976d2] to-[#8cf] font-bold border shadow mb-2 mt-1 cursor-pointer"
+                    style={{
+                        boxShadow: '0 2px 8px 0 #8cf8',
+                        textShadow: '0 1px 2px #2228',
+                    }}
+                >
+                    {avatar}
+                </button>
+            ))}
         </div>
     </div>
 }
