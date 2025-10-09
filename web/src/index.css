@@ -1,17 +1,5 @@
 @import "tailwindcss";
 
-@keyframes backgroundPulse {
-  0% {
-    background-color: #383838;
-  }
-  50% {
-    background-color: #ffffff;
-  }
-  100% {
-    background-color: #383838;
-  }
-}
-
 html {
   min-height: calc(100% + env(safe-area-inset-top));
   background-attachment: fixed;
@@ -19,8 +7,6 @@ html {
   background-position: center;
   background-repeat: no-repeat;
   background-size: 20vmin;
-  background-color: #f0f0f0;
-  animation: backgroundPulse 10s ease-in-out infinite;
 }
 
 :root {
