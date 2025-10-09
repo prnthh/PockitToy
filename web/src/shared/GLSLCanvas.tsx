@@ -98,4 +98,180 @@ gl_FragColor = vec4(color, 1.0);
     return <canvas ref={canvasRef} className="fixed top-0 left-0 pointer-events-none select-none absolute inset-0 w-full h-[108vh]" />;
 };
 
-export default SkyShader;
+const DrawingCanvas = () => {
+    const canvasRef = useRef<HTMLCanvasElement>(null);
+    const isDrawing = useRef(false);
+    const lastPos = useRef<{ x: number, y: number } | null>(null);
+    const animationFrameRef = useRef<number>(0);
+
+    useEffect(() => {
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+
+        // Store all drawn strokes for animation
+        const strokes: Array<{ points: { x: number, y: number, time: number }[], complete: boolean }> = [];
+        let currentStroke: { x: number, y: number, time: number }[] = [];
+
+        // Aesthetic color palettes
+        const colorPalettes = [
+            { bg: '#FDF4E3', stroke: '#8B4513' }, // Warm cream & brown
+            { bg: '#E8F4FD', stroke: '#2C5282' }, // Soft blue & navy
+            { bg: '#F0FDF4', stroke: '#166534' }, // Mint & forest green
+            { bg: '#FEF3F2', stroke: '#B91C1C' }, // Blush & crimson
+            { bg: '#F5F3FF', stroke: '#6B46C1' }, // Lavender & purple
+            { bg: '#FFFBEB', stroke: '#D97706' }, // Honey & amber
+            { bg: '#F0F9FF', stroke: '#0369A1' }, // Sky & ocean blue
+            { bg: '#FDF2F8', stroke: '#BE185D' }, // Rose & magenta
+            { bg: '#ECFDF5', stroke: '#047857' }, // Sage & emerald
+            { bg: '#FEF7ED', stroke: '#EA580C' }, // Peach & orange
+        ];
+
+        // Select random palette
+        const palette = colorPalettes[Math.floor(Math.random() * colorPalettes.length)];
+
+        // Resize canvas to fill screen
+        const resizeCanvas = () => {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+
+        // Animation loop for dancing effect
+        const animate = () => {
+            // Fill background with palette color
+            ctx.fillStyle = palette.bg;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            const currentTime = Date.now();
+
+            // Draw all strokes with dancing effect
+            strokes.forEach((stroke, strokeIndex) => {
+                if (stroke.points.length < 2) return;
+
+                ctx.strokeStyle = palette.stroke;
+                ctx.lineWidth = 2;
+                ctx.lineCap = 'round';
+                ctx.beginPath();
+
+                for (let i = 0; i < stroke.points.length - 1; i++) {
+                    const point1 = stroke.points[i];
+                    const point2 = stroke.points[i + 1];
+
+                    // Add dancing effect based on time and position
+                    const waveOffset1 = Math.sin((currentTime * 0.002) + (point1.x * 0.01) + (strokeIndex * 0.5)) * 2;
+                    const waveOffset2 = Math.sin((currentTime * 0.002) + (point2.x * 0.01) + (strokeIndex * 0.5)) * 2;
+
+                    const x1 = point1.x + waveOffset1;
+                    const y1 = point1.y + Math.cos((currentTime * 0.003) + (point1.y * 0.01) + (strokeIndex * 0.3)) * 1.5;
+                    const x2 = point2.x + waveOffset2;
+                    const y2 = point2.y + Math.cos((currentTime * 0.003) + (point2.y * 0.01) + (strokeIndex * 0.3)) * 1.5;
+
+                    if (i === 0) {
+                        ctx.moveTo(x1, y1);
+                    }
+                    ctx.lineTo(x2, y2);
+                }
+                ctx.stroke();
+            });
+
+            // Draw current stroke being drawn (if any) - no animation while drawing
+            if (currentStroke.length > 1) {
+                ctx.strokeStyle = palette.stroke;
+                ctx.lineWidth = 2;
+                ctx.lineCap = 'round';
+                ctx.beginPath();
+
+                for (let i = 0; i < currentStroke.length - 1; i++) {
+                    const point1 = currentStroke[i];
+                    const point2 = currentStroke[i + 1];
+
+                    if (i === 0) {
+                        ctx.moveTo(point1.x, point1.y);
+                    }
+                    ctx.lineTo(point2.x, point2.y);
+                }
+                ctx.stroke();
+            }
+
+            animationFrameRef.current = requestAnimationFrame(animate);
+        };
+
+        animate();
+
+        const getEventPos = (e: MouseEvent | TouchEvent) => {
+            const rect = canvas.getBoundingClientRect();
+            let clientX: number, clientY: number;
+
+            if (e instanceof TouchEvent) {
+                const touch = e.touches[0] || e.changedTouches[0];
+                clientX = touch.clientX;
+                clientY = touch.clientY;
+            } else {
+                clientX = e.clientX;
+                clientY = e.clientY;
+            }
+
+            return {
+                x: clientX - rect.left,
+                y: clientY - rect.top
+            };
+        }
+
+        const startDrawing = (e: MouseEvent | TouchEvent) => {
+            e.preventDefault();
+            isDrawing.current = true;
+            const pos = getEventPos(e);
+            lastPos.current = pos;
+            currentStroke = [{ x: pos.x, y: pos.y, time: Date.now() }];
+        }
+
+        const draw = (e: MouseEvent | TouchEvent) => {
+            if (!isDrawing.current || !lastPos.current) return;
+            e.preventDefault();
+            const eventPos = getEventPos(e);
+
+            // Add point to current stroke
+            currentStroke.push({ x: eventPos.x, y: eventPos.y, time: Date.now() });
+            lastPos.current = eventPos;
+        }
+
+        const stopDrawing = () => {
+            if (isDrawing.current && currentStroke.length > 0) {
+                strokes.push({ points: currentStroke, complete: true });
+                currentStroke = [];
+            }
+            isDrawing.current = false;
+            lastPos.current = null;
+        }
+
+        canvas.addEventListener('mousedown', startDrawing);
+        canvas.addEventListener('mousemove', draw);
+        window.addEventListener('mouseup', stopDrawing);
+
+        // Touch events for mobile
+        canvas.addEventListener('touchstart', startDrawing);
+        canvas.addEventListener('touchmove', draw);
+        canvas.addEventListener('touchend', stopDrawing);
+
+        // Cleanup
+        return () => {
+            if (animationFrameRef.current) {
+                cancelAnimationFrame(animationFrameRef.current);
+            }
+            window.removeEventListener('resize', resizeCanvas);
+            canvas.removeEventListener('mousedown', startDrawing);
+            canvas.removeEventListener('mousemove', draw);
+            window.removeEventListener('mouseup', stopDrawing);
+            canvas.removeEventListener('touchstart', startDrawing);
+            canvas.removeEventListener('touchmove', draw);
+            canvas.removeEventListener('touchend', stopDrawing);
+        }
+    }, []);
+
+    return <canvas ref={canvasRef} className="fixed top-0 left-0 pointer-events-auto select-none absolute inset-0 w-full h-full" />;
+};
+
+export default DrawingCanvas;
