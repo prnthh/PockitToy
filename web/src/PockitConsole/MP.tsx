@@ -76,15 +76,22 @@ export default function MP({ appId = 'pockit.world', roomId, children }: { appId
   }
 
   const handlePeerLeave = (peer: string) => {
+    let peerName = peer.slice(0, 8);
     setPeerStates(states => {
       const peerState = states[peer];
-      if (peerState && peerState.profile)
-        setConsoleMessages(msgs => [...msgs, { peer: 'system', message: <div className='inline'><span className="font-bold">{peerState.profile.name || peer.slice(0, 8)}</span> left</div> }])
-
+      if (peerState && peerState.profile?.name)
+        peerName = peerState.profile.name;
       const newStates = { ...states }
       delete newStates[peer]
       return newStates
     })
+
+    setConsoleMessages(msgs => [...msgs, {
+      peer: 'system',
+      message: <div className='inline'><span className="font-bold">
+        {peerName}</span> left</div>
+    }])
+
   }
 
   const handlePeerState = (state: any, peer: string) => {
@@ -93,9 +100,9 @@ export default function MP({ appId = 'pockit.world', roomId, children }: { appId
 
     if (
       state &&
-      Array.isArray(state.position) &&
-      state.position.length === 3 &&
-      state.position.every((n: any) => typeof n === 'number') &&
+      // Array.isArray(state.position) &&
+      // state.position.length === 3 &&
+      // state.position.every((n: any) => typeof n === 'number') &&
       typeof state.profile === 'object'
     ) {
       setPeerStates(states => {
