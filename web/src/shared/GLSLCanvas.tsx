@@ -9,7 +9,7 @@ declare global {
 }
 
 
-const SkyShader = () => {
+export const SkyShader = () => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
 
     useEffect(() => {
