@@ -35,14 +35,30 @@ export default function MP({ appId = 'pockit.world', roomId, children }: { appId
     }
     origConsoleError.apply(console, args)
   }
-  const room = joinRoom({ appId, password: undefined }, roomId)
+
+  const [connectionKey, setConnectionKey] = useState(Math.random())
+  const room = useMemo(() => joinRoom({ appId, password: undefined }, roomId), [appId, roomId, connectionKey])
+
+  useEffect(() => {
+    const heartBeat = setInterval(() => {
+      try {
+        console.log("heartbeat!", room.getPeers())
+      } catch (error) {
+        console.error('Error fetching peers:', error)
+        setConnectionKey(Math.random()) // Reset connection
+      }
+    }, 10000)
+
+    return () => clearInterval(heartBeat)
+  }, [room])
+
+  // Peer states
   const [sendPlayerState, getPeerStates] = room.makeAction('peerState')
+  const [peerStates, setPeerStates] = useState<Record<string, PeerState>>({})
   const [myState, setMyState] = useState<{ position: [number, number, number], profile: { [key: string]: any } }>({ position: [0, 0, 0], profile: {} })
   const myStateRef = useRef(myState)
-  const [peerStates, setPeerStates] = useState<Record<string, PeerState>>({})
-
-  // Keep ref in sync with state
   useEffect(() => {
+    // Keep ref in sync with state
     myStateRef.current = myState
   }, [myState])
 
@@ -56,6 +72,7 @@ export default function MP({ appId = 'pockit.world', roomId, children }: { appId
     console.log('Peer joined:', peer)
     sendPlayerState(myStateRef.current, peer)
   }
+
   const handlePeerLeave = (peer: string) => {
     setPeerStates(states => {
       const peerState = states[peer];
@@ -254,25 +271,6 @@ export default function MP({ appId = 'pockit.world', roomId, children }: { appId
     </MPContext.Provider >
   )
 }
-
-// export const useRoom = (roomConfig: BaseRoomConfig, roomId: string) => {
-//   const roomRef = useRef(joinRoom(roomConfig, roomId))
-//   const lastRoomIdRef = useRef(roomId)
-
-//   useEffect(() => {
-//     if (roomId !== lastRoomIdRef.current) {
-//       roomRef.current.leave()
-//       roomRef.current = joinRoom(roomConfig, roomId)
-//       lastRoomIdRef.current = roomId
-//     }
-
-//     return () => {
-//       roomRef.current.leave()
-//     }
-//   }, [roomConfig, roomId])
-
-//   return roomRef.current
-// }
 
 
 // server side
