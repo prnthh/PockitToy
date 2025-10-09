@@ -40,16 +40,18 @@ export default function MP({ appId = 'pockit.world', roomId, children }: { appId
   const room = useMemo(() => joinRoom({ appId, password: undefined }, roomId), [appId, roomId, connectionKey])
 
   useEffect(() => {
-    const heartBeat = setInterval(() => {
+    const heartBeat = () => {
       try {
         console.log("heartbeat!", room.getPeers())
       } catch (error) {
         console.error('Error fetching peers:', error)
         setConnectionKey(Math.random()) // Reset connection
       }
-    }, 10000)
+    }
+    heartBeat();
 
-    return () => clearInterval(heartBeat)
+    const heartBeater = setInterval(heartBeat, 10000)
+    return () => clearInterval(heartBeater)
   }, [room])
 
   // Peer states
