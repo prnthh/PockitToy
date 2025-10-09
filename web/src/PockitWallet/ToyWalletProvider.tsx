@@ -449,6 +449,8 @@ function ToyWallet() {
                     >
                         <input
                             type="password"
+                            pattern="[0-9]*"
+                            inputMode="numeric"
                             value={pinInput}
                             onChange={(e) => handlePinChange(e.target.value)}
                             className="bg-transparent text-white text-center text-sm font-mono border border-gray-600 rounded px-1 pt-1 w-16 focus:outline-none focus:border-blue-400"
