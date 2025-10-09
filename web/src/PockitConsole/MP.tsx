@@ -233,12 +233,13 @@ export default function MP({ appId = 'pockit.world', roomId, children }: { appId
             ))}
           </div>
           {/* Pager logo, simplified */}
-          <div className="cursor-pointer select-none mt-6 text-[12px] font-bold mt-2 tracking-widest text-center" style={{ textShadow: '0 1px 4px #fff8' }}>
+          <div className="flex flex-col items-center cursor-pointer select-none text-[12px] font-bold mt-4 tracking-widest text-center" style={{ textShadow: '0 1px 4px #fff8' }}>
             <div
               onClick={() => { playSound('/sound/click.mp3') }}
-              className="text-shadow-[-1px_1px_#ffffffcc,_-1px_-1px_#000000cc] text-black font-black leading-[12px]" >
+              className="text-shadow-[-1px_1px_#ffffffcc,_-1px_-1px_#000000cc] text-transparent font-black leading-[12px]" >
               POCKIT<br /> NAVI
             </div>
+            <img src="/ui/speaker.png" className="w-10 h-10 mt-1 rounded-full" />
           </div>
         </div>
         {/* Pager screen with glass effect, simplified */}
