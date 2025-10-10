@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { getRandomColorPalette } from './styleUtils';
 
 
@@ -258,7 +258,26 @@ const DrawingCanvas = () => {
         }
     }, []);
 
-    return <canvas ref={canvasRef} className="fixed top-0 left-0 pointer-events-auto select-none absolute inset-0 w-full h-full" />;
+    return <>
+        <canvas ref={canvasRef} className="fixed top-0 left-0 pointer-events-auto select-none absolute inset-0 w-full h-full" />
+        {/* <Door /> */}
+    </>;
 };
+
+export const Door = () => {
+    const [open, setOpen] = useState(false);
+    const [hidden, setHidden] = useState(false);
+
+    useEffect(() => {
+        if (open && !hidden)
+            setTimeout(() => setHidden(true), 1000);
+    }, [open, hidden]);
+
+    return <div className={`fixed top-0 left-0 w-screen h-screen select-none transition-all ease-in duration-2000 ${open ? "pointer-events-none" : ""} ${hidden ? "opacity-0 scale-110" : "opacity-100 scale-100"} z-[1000]`}>
+        <img src="/ui/door2/door-frame.png" className="absolute top-0 left-0 w-full h-full object-contain z-[1001]" onClick={() => { setOpen(!open) }} />
+        <img src="/ui/door2/door-left.png" className={`absolute top-0 transition-all ease-in-out duration-1000 ${open ? '-left-[25%]' : 'left-0 '} w-full h-full object-contain`} />
+        <img src="/ui/door2/door-right.png" className={`absolute top-0 transition-all ease-in-out duration-1000 ${open ? '-right-[25%]' : 'right-0'} w-full h-full object-contain`} />
+    </div>
+}
 
 export default DrawingCanvas;

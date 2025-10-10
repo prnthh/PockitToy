@@ -8,6 +8,13 @@ import ChatBox from './ChatBox'
 import { useAudio } from '@/shared/AudioProvider'
 import { useSaveBlob } from '@/shared/SaveBlobProvider'
 
+const themes = {
+  metal: "bg-gradient-to-br from-[#2229] to-[#2226]", // original gray
+  purplePlastic: "bg-gradient-to-br from-[#a070d1] to-[#7040a0]",// Game Boy Color purple
+  bluePlastic: "bg-gradient-to-br from-[#6fb4ff] to-[#00f0ff]",  // cyberpunk neon cyan -> violet
+  redPlastic: "bg-gradient-to-br from-[#d93a3a] to-[#ff9b9b]",   // warm Game Boy Color red/pink
+}
+
 export type PeerState = {
   position: [number, number, number],
   profile: { [key: string]: any },
@@ -40,18 +47,57 @@ export default function MP({ appId = 'pockit.world', roomId, children }: { appId
   const room = useMemo(() => joinRoom({ appId, password: undefined }, roomId), [appId, roomId, connectionKey])
 
   useEffect(() => {
+    let heartBeater: number | null = null
     const heartBeat = () => {
       try {
-        console.log("heartbeat!", room.getPeers())
+        room.getPeers()
+        // console.log("heartbeat!", room.getPeers())
       } catch (error) {
         console.error('Error fetching peers:', error)
         setConnectionKey(Math.random()) // Reset connection
       }
     }
-    heartBeat();
 
-    const heartBeater = setInterval(heartBeat, 10000)
-    return () => clearInterval(heartBeater)
+    const startHeartBeat = () => {
+      if (heartBeater) clearInterval(heartBeater)
+      heartBeat()
+      heartBeater = setInterval(heartBeat, 10000)
+    }
+
+    const stopHeartBeat = () => {
+      if (heartBeater) {
+        clearInterval(heartBeater)
+        heartBeater = null
+      }
+    }
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        stopHeartBeat()
+      } else {
+        startHeartBeat()
+      }
+    }
+
+    const handleFocus = () => {
+      startHeartBeat()
+    }
+
+    const handleBlur = () => {
+      stopHeartBeat()
+    }
+
+    startHeartBeat()
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    window.addEventListener('focus', handleFocus)
+    window.addEventListener('blur', handleBlur)
+
+    return () => {
+      stopHeartBeat()
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      window.removeEventListener('focus', handleFocus)
+      window.removeEventListener('blur', handleBlur)
+    }
   }, [room])
 
   // Peer states
@@ -208,13 +254,14 @@ export default function MP({ appId = 'pockit.world', roomId, children }: { appId
   }), []);
 
   const [currentUIPage, setCurrentUIPage] = useState<keyof typeof pages>('console')
+  const [currentTheme, setCurrentTheme] = useState<keyof typeof themes>(Object.keys(themes)[Math.floor(Math.random() * Object.keys(themes).length)] as keyof typeof themes)
 
 
   return (
     <MPContext.Provider value={{ room, peerStates, myState }}>
       {children}
       <div
-        className={`w-full h-full flex flex-row items-center rounded-[2.2rem] text-black bg-gradient-to-br from-[#2229] to-[#2226] p-4 font-sans shadow-[inset_-8px_8px_6px_-8px_#ffffff,inset_8px_-8px_6px_-8px_#000000]`}
+        className={`${themes[currentTheme]} w-full h-full flex flex-row items-center rounded-[2.2rem] text-black p-4 font-sans shadow-[inset_-8px_8px_6px_-8px_#ffffff,inset_8px_-8px_6px_-8px_#000000]`}
         style={{
           backdropFilter: 'blur(16px)',
         }}
@@ -240,11 +287,14 @@ export default function MP({ appId = 'pockit.world', roomId, children }: { appId
             ))}
           </div>
           {/* Pager logo, simplified */}
-          <div className="flex flex-col items-center cursor-pointer select-none text-[12px] font-bold mt-4 tracking-widest text-center" style={{ textShadow: '0 1px 4px #fff8' }}>
+          <div className="flex flex-col items-center cursor-pointer select-none text-[12px] font-bold mt-3 tracking-widest text-center" style={{ textShadow: '0 1px 4px #fff8' }}>
             <div
-              onClick={() => { playSound('/sound/click.mp3') }}
-              className="text-shadow-[-1px_1px_#ffffffcc,_-1px_-1px_#000000cc] text-transparent font-black leading-[12px]" >
-              POCKIT<br /> NAVI
+              onClick={() => {
+                playSound('/sound/click.mp3')
+                setCurrentTheme(Object.keys(themes)[Math.floor(Math.random() * Object.keys(themes).length)] as keyof typeof themes)
+              }}
+              className="text-shadow-[-1px_1px_#ffffffcc,_-1px_-1px_#000000cc] text-black leading-[16px] flex items-center flex-col" >
+              POCKIT
             </div>
             <img src="/ui/speaker.png" className="w-10 h-10 mt-1 rounded-full" />
           </div>
@@ -253,7 +303,7 @@ export default function MP({ appId = 'pockit.world', roomId, children }: { appId
         <div
           className="rounded-2xl border h-full flex-1 flex relative overflow-hidden"
           style={{
-            background: currentUIPage == 'profile' ? 'linear-gradient(rgba(190, 190, 190, 1), rgba(182, 182, 182, 1))' : '#b2d8b2',
+            background: currentTheme == 'metal' ? '#b2d8b2' : 'linear-gradient(rgba(190, 190, 190, 1), rgba(182, 182, 182, 1))',
             boxShadow: 'inset 0 0 16px 2px #5f5f5fff, rgb(91, 91, 91) -1px 1px 1px inset, rgb(5, 5, 5) -1px 1px 3px inset',
           }}
         >
