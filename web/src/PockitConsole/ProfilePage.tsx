@@ -1,5 +1,5 @@
 import { useSaveBlob } from "@/shared/SaveBlobProvider";
-import { ToyWallet, ToyWalletProvider } from "@/PockitWallet/ToyWalletProvider";
+import { ToyWallet } from "@/PockitWallet/ToyWalletProvider";
 
 export default function ProfilePage({ myState, setMyState, sendPlayerState }: {
     myState: { position: [number, number, number], profile: { [key: string]: any } },
