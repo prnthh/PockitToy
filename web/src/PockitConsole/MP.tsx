@@ -248,12 +248,25 @@ export default function MP({ appId = 'pockit.world', roomId, children }: { appId
   }, [getBlob, setMyState]);
 
   const pages = useMemo(() => ({
-    profile: ProfilePage,
-    console: ChatBox,
-    friends: PeerList
-  }), []);
+    profile: <ProfilePage
+      myState={myState}
+      setMyState={setMyState}
+      sendPlayerState={sendPlayerState}
+    />,
+    console: <ChatBox
+      chatInput={chatInput}
+      setChatInput={setChatInput}
+      sendChat={sendChat}
+      consoleMessages={consoleMessages}
+      setConsoleMessages={setConsoleMessages}
+    />,
+    friends: <PeerList
+      sendChat={sendChat}
+    />,
+    config: <div className='w-full h-full flex items-center justify-center text-black'>current channel / trusted domains / trusted admins</div>
+  }), [myState, setMyState, sendPlayerState, chatInput, setChatInput, sendChat, consoleMessages, setConsoleMessages]);
 
-  const [currentUIPage, setCurrentUIPage] = useState<keyof typeof pages>('console')
+  const [currentUIPage, setCurrentUIPage] = useState<keyof typeof pages>(Object.keys(pages)[0] as keyof typeof pages)
   const [currentTheme, setCurrentTheme] = useState<keyof typeof themes>(Object.keys(themes)[Math.floor(Math.random() * Object.keys(themes).length)] as keyof typeof themes)
 
 
@@ -269,7 +282,7 @@ export default function MP({ appId = 'pockit.world', roomId, children }: { appId
         <div className="flex flex-col items-center justify-end min-w-[80px] text-white pr-2">
           {/* Pager nav buttons, simplified */}
           <div className="flex flex-col gap-2 mt-1">
-            {Object.keys(pages).map((page) => (
+            {Object.keys(pages).filter((key) => key !== 'config').map((page) => (
               <div
                 key={page}
                 className={`${page === currentUIPage ? 'bg-[#1976d2]' : 'bg-gradient-to-br from-[#1976d2] to-[#8cf]'} hover:scale-102 active:scale-95 transition-all h-5 px-1 cursor-pointer rounded-full border shadow flex items-center justify-center font-bold text-[13px]`}
@@ -292,6 +305,7 @@ export default function MP({ appId = 'pockit.world', roomId, children }: { appId
               onClick={() => {
                 playSound('/sound/click.mp3')
                 setCurrentTheme(Object.keys(themes)[Math.floor(Math.random() * Object.keys(themes).length)] as keyof typeof themes)
+                setCurrentUIPage('config')
               }}
               className="text-shadow-[-1px_1px_#ffffffcc,_-1px_-1px_#000000cc] text-black leading-[16px] flex items-center flex-col" >
               POCKIT
@@ -307,21 +321,7 @@ export default function MP({ appId = 'pockit.world', roomId, children }: { appId
             boxShadow: 'inset 0 0 16px 2px #5f5f5fff, rgb(91, 91, 91) -1px 1px 1px inset, rgb(5, 5, 5) -1px 1px 3px inset',
           }}
         >
-          {currentUIPage === 'console' && <ChatBox
-            chatInput={chatInput}
-            setChatInput={setChatInput}
-            sendChat={sendChat}
-            consoleMessages={consoleMessages}
-            setConsoleMessages={setConsoleMessages}
-          />}
-          {currentUIPage === 'profile' && <ProfilePage
-            myState={myState}
-            setMyState={setMyState}
-            sendPlayerState={sendPlayerState}
-          />}
-          {currentUIPage === 'friends' && <PeerList
-            sendChat={sendChat}
-          />}
+          {pages[currentUIPage]}
         </div>
 
 

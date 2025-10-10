@@ -1,5 +1,6 @@
 import { useSaveBlob } from "@/shared/SaveBlobProvider";
-import { ToyWallet } from "@/PockitWallet/ToyWalletProvider";
+import { ToyWallet, useToyWallet } from "@/PockitWallet/ToyWalletProvider";
+import { useEffect } from "react";
 
 export default function ProfilePage({ myState, setMyState, sendPlayerState }: {
     myState: { position: [number, number, number], profile: { [key: string]: any } },
@@ -74,6 +75,17 @@ const Profile = ({ state, updateProfile }: {
     state: { position: [number, number, number], profile: { [key: string]: any } },
     updateProfile?: (key: string, value: any) => void
 }) => {
+    const wallet = useToyWallet();
+    const {
+        walletState,
+    } = wallet;
+
+    useEffect(() => {
+        if (walletState.address) {
+            updateProfile?.('walletAddress', walletState.address);
+        }
+    }, [walletState]);
+
     return <div className="w-full px-2 text-black gap-y-1 flex flex-col">
         <div className="flex justify-between items-end w-full">
 
