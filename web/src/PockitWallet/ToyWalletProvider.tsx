@@ -527,10 +527,11 @@ export function ToyWallet() {
                             setError('');
                         }
                     }}
-                    className="text-xl hover:scale-110 transition-transform cursor-pointer"
+                    className="text-xl hover:scale-110 transition-transform cursor-pointer flex items-center"
                     title={unlocked ? "Lock wallet" : "Unlock wallet"}
                 >
                     {unlocked ? "🔓" : "🔒"}
+                    {(keyExists() || showPinInput) ? "" : <div className="text-sm px-2">set a pin!</div>}
                 </button>
 
                 {unlocked ? (

@@ -111,6 +111,7 @@ const Profile = ({ state, updateProfile }: {
         <div className="font-mono text-sm border my-1">This user likes cheese.</div>
         <div className="font-mono text-sm border my-1 text-center">
             <span className="flex justify-center w-full border-b">Achievements</span>
+            {/* todo: set a pin, meet pockit ceo, meet a friend, send a message */}
             <div className="py-2">no achievements yet. <br />keep clicking!</div>
         </div>
 
