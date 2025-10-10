@@ -1,6 +1,6 @@
 import { useSaveBlob } from "@/shared/SaveBlobProvider";
 import { ToyWallet, useToyWallet } from "@/PockitWallet/ToyWalletProvider";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect } from "react";
 
 export default function ProfilePage({ myState, setMyState, sendPlayerState }: {
     myState: { position: [number, number, number], profile: { [key: string]: any } },
@@ -8,44 +8,42 @@ export default function ProfilePage({ myState, setMyState, sendPlayerState }: {
     sendPlayerState: (state: { position: [number, number, number], profile: { [key: string]: any } }) => void
 }) {
     const { useData } = useSaveBlob();
-    const [savedProfile, setSavedProfile] = useData('profile', {});
-    const [profile, setProfile] = useState(myState.profile);
+    const [, setSavedProfile] = useData('profile', {});
     const { walletState } = useToyWallet();
 
-    // Load saved profile on mount
+    const updateProfile = useCallback((key: string, value: any) => {
+        const newProfile = { ...myState.profile, [key]: value };
+        const newState = { ...myState, profile: newProfile };
+        
+        setMyState(newState);
+        sendPlayerState(newState);
+        setSavedProfile(newProfile);
+    }, [myState, setMyState, sendPlayerState, setSavedProfile]);
+
+    const setWholeProfile = useCallback((newProfile: { [key: string]: any }) => {
+        const newState = { ...myState, profile: newProfile };
+        
+        setMyState(newState);
+        sendPlayerState(newState);
+        setSavedProfile(newProfile);
+    }, [myState, setMyState, sendPlayerState, setSavedProfile]);
+
+    // Handle wallet address updates when wallet connects
     useEffect(() => {
-        if (Object.keys(savedProfile).length > 0) {
-            setProfile(savedProfile);
+        if (walletState.address && walletState.address !== myState.profile.walletAddress) {
+            updateProfile('walletAddress', walletState.address);
         }
-    }, [savedProfile]);
-
-    // Sync profile changes
-    useEffect(() => {
-        setMyState(state => ({ ...state, profile }));
-        sendPlayerState({ ...myState, profile });
-        setSavedProfile(profile);
-    }, [profile]);
-
-    // Handle wallet address
-    useEffect(() => {
-        if (walletState.address && walletState.address !== profile.walletAddress) {
-            setProfile(prev => ({ ...prev, walletAddress: walletState.address }));
-        }
-    }, [walletState.address, profile.walletAddress]);
-
-    const updateProfile = (key: string, value: any) => {
-        setProfile(prev => ({ ...prev, [key]: value }));
-    };
+    }, [walletState.address, myState.profile.walletAddress, updateProfile]);
 
     return (
         <div className="h-full w-full overflow-y-auto noscrollbar p-2">
-            <Profile profile={profile} updateProfile={updateProfile} />
+            <Profile profile={myState.profile} updateProfile={updateProfile} />
             <input
-                value={JSON.stringify(profile)}
+                value={JSON.stringify(myState.profile)}
                 onChange={(e) => {
                     try {
                         const obj = JSON.parse(e.target.value);
-                        setProfile(obj);
+                        setWholeProfile(obj);
                     } catch {
                         // Invalid JSON, ignore
                     }

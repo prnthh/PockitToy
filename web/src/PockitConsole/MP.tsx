@@ -52,17 +52,15 @@ export default function MP({ appId = 'pockit.world', roomId, children }: { appId
   // Load profile using the new reactive data API
   const [profile] = useData('profile', {});
 
+  // Initialize myState with saved profile on mount
   useEffect(() => {
     if (Object.keys(profile).length > 0) {
       setMyState(state => ({
         ...state,
-        profile: {
-          ...state.profile,
-          ...profile
-        }
+        profile: profile
       }));
     }
-  }, [profile]); // Only depend on profile data
+  }, [isLoaded]); // Only run when SaveBlob is loaded
 
   const [connectionKey, setConnectionKey] = useState(Math.random())
   const room = useMemo(() => joinRoom({ appId, password: undefined }, roomId), [appId, roomId, connectionKey])
