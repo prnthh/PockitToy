@@ -1,38 +1,55 @@
 import { useSaveBlob } from "@/shared/SaveBlobProvider";
 import { ToyWallet, useToyWallet } from "@/PockitWallet/ToyWalletProvider";
-import { useEffect, useCallback } from "react";
+import { useEffect, useState } from "react";
 
 export default function ProfilePage({ myState, setMyState, sendPlayerState }: {
     myState: { position: [number, number, number], profile: { [key: string]: any } },
     setMyState: React.Dispatch<React.SetStateAction<{ position: [number, number, number], profile: { [key: string]: any } }>>,
     sendPlayerState: (state: { position: [number, number, number], profile: { [key: string]: any } }) => void
 }) {
-    const updateProfile = useCallback((key: string, value: any) => {
-        setMyState(state => {
-            const newProfile = { ...state.profile, [key]: value };
-            const newState = { ...state, profile: newProfile };
-            sendPlayerState(newState);
-            return newState;
-        });
-    }, [setMyState, sendPlayerState]);
+    const { useData } = useSaveBlob();
+    const [savedProfile, setSavedProfile] = useData('profile', {});
+    const [profile, setProfile] = useState(myState.profile);
+    const { walletState } = useToyWallet();
 
-    const handleJsonInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        try {
-            const obj = JSON.parse(e.target.value);
-            const newProfile = { ...myState.profile, ...obj };
-            setMyState(state => ({ ...state, profile: newProfile }));
-            sendPlayerState({ ...myState, profile: newProfile });
-        } catch {
-            // Invalid JSON, ignore
+    // Load saved profile on mount
+    useEffect(() => {
+        if (Object.keys(savedProfile).length > 0) {
+            setProfile(savedProfile);
         }
+    }, [savedProfile]);
+
+    // Sync profile changes
+    useEffect(() => {
+        setMyState(state => ({ ...state, profile }));
+        sendPlayerState({ ...myState, profile });
+        setSavedProfile(profile);
+    }, [profile]);
+
+    // Handle wallet address
+    useEffect(() => {
+        if (walletState.address && walletState.address !== profile.walletAddress) {
+            setProfile(prev => ({ ...prev, walletAddress: walletState.address }));
+        }
+    }, [walletState.address, profile.walletAddress]);
+
+    const updateProfile = (key: string, value: any) => {
+        setProfile(prev => ({ ...prev, [key]: value }));
     };
 
     return (
         <div className="h-full w-full overflow-y-auto noscrollbar p-2">
-            <Profile updateProfile={updateProfile} state={myState} />
+            <Profile profile={profile} updateProfile={updateProfile} />
             <input
-                value={JSON.stringify(myState.profile)}
-                onChange={handleJsonInputChange}
+                value={JSON.stringify(profile)}
+                onChange={(e) => {
+                    try {
+                        const obj = JSON.parse(e.target.value);
+                        setProfile(obj);
+                    } catch {
+                        // Invalid JSON, ignore
+                    }
+                }}
                 className="w-full p-2 rounded border-none bg-[#333] text-white text-[10px] font-mono mb-2"
             />
             <div className="text-xs" onClick={() => {
@@ -48,26 +65,16 @@ export default function ProfilePage({ myState, setMyState, sendPlayerState }: {
     );
 }
 
-const Profile = ({ state, updateProfile }: {
-    state: { position: [number, number, number], profile: { [key: string]: any } },
+const Profile = ({ profile, updateProfile }: {
+    profile: { [key: string]: any },
     updateProfile?: (key: string, value: any) => void
 }) => {
-    const wallet = useToyWallet();
-    const { walletState } = wallet;
-    const { isLoaded } = useSaveBlob();
-
-    useEffect(() => {
-        if (walletState.address && isLoaded && updateProfile) {
-            updateProfile('walletAddress', walletState.address);
-        }
-    }, [walletState.address, isLoaded, updateProfile]);
-
     return <div className="w-full px-2 text-black gap-y-1 flex flex-col">
         <div className="flex justify-between items-end w-full">
 
             <input
                 type="text"
-                value={state.profile.name || ''}
+                value={profile.name || ''}
                 onChange={e => updateProfile?.('name', e.target.value)}
                 placeholder='nickname'
                 className="font-mono text-xl p-1 rounded border-none bg-transparent text-black outline-none w-[70%]"
