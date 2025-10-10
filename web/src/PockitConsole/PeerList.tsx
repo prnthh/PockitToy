@@ -17,7 +17,7 @@ type Contact = {
 export default function PeerList({ sendChat }: { sendChat: (msg: string, peer?: string) => void }) {
     const { peerStates, room } = useContext(MPContext);
     const { useData, isLoaded } = useSaveBlob();
-    const [addressBook, setAddressBook] = useData('addressBook', {} as Record<string, { name: string, addedAt: string }>);
+    const [addressBook, setAddressBook] = useData('addressBook', {} as Record<string, { name: string, addedAt: string, publicKey?: string }>);
     const [selected, setSelected] = useState<string | null>(null);
     const [dmTarget, setDmTarget] = useState<string | null>(null);
     const [dmInput, setDmInput] = useState('');
@@ -95,7 +95,13 @@ export default function PeerList({ sendChat }: { sendChat: (msg: string, peer?: 
                     name: data.name,
                     isOnline: false,
                     isFriend: true,
-                    walletAddress: address
+                    walletAddress: address,
+                    profile: {
+                        name: data.name,
+                        walletAddress: address,
+                        publicKey: data.publicKey,
+                        addedAt: data.addedAt
+                    }
                 });
             }
         });
@@ -156,6 +162,13 @@ export default function PeerList({ sendChat }: { sendChat: (msg: string, peer?: 
                                         deleteContact(contact.walletAddress!);
                                     }}>Delete</button>
                             )}
+
+                            <textarea
+                                readOnly
+                                className="flex-1 bg-black/10 text-white text-[10px] font-mono p-1 rounded border border-black/30 resize-none"
+                                value={contact.profile ? JSON.stringify(contact.profile, null, 2) : 'No profile data'}
+                            />
+
                         </div>
                     )}
                 </div>

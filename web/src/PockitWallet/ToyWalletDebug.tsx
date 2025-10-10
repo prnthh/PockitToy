@@ -54,7 +54,7 @@ export default function ToyWalletDebug({ onClose }: Props) {
 
             <div className="p-4">
                 {walletState.unlocked ? (
-                    <div className="space-y-6">
+                    <div className="space-y-2">
                         {/* Wallet Info */}
                         <div className="bg-gray-800/30 rounded-lg p-3 border border-gray-700 grid grid-cols-2 gap-4">
                             <button onClick={actions.copyAddr} className="bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 px-2 py-1 rounded text-xs transition-colors border border-blue-600/30">📋 Copy Address</button>
@@ -65,6 +65,7 @@ export default function ToyWalletDebug({ onClose }: Props) {
                             <button onClick={actions.copyPubKey} className="bg-green-600/20 hover:bg-green-600/30 text-green-300 px-2 py-1 rounded text-xs transition-colors border border-green-600/30">🔑 Copy Public Key</button>
                             <button onClick={actions.exportKey} className="bg-red-600/20 hover:bg-red-600/30 text-red-300 px-2 py-1 rounded text-xs transition-colors border border-red-600/30">💾 Export Key</button>
                         </div>
+                        {copyFeedback && <div className="text-green-400 text-center text-xs font-mono">Copied to clipboard!</div>}
 
                         {/* Input Section */}
                         <div className="bg-gray-800/30 rounded-lg p-4 border border-gray-700 space-y-4">

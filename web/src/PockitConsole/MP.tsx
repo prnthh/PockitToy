@@ -47,7 +47,7 @@ export default function MP({ appId = 'pockit.world', roomId, children }: { appId
   }, [])
 
   const { isLoaded, useData } = useSaveBlob();
-  const [, setAddressBook] = useData('addressBook', {} as Record<string, { name: string, addedAt: string }>);
+  const [, setAddressBook] = useData('addressBook', {} as Record<string, { name: string, addedAt: string, publicKey?: string }>);
 
   // Load profile using the new reactive data API
   const [profile] = useData('profile', {});
@@ -164,7 +164,8 @@ export default function MP({ appId = 'pockit.world', roomId, children }: { appId
           ...prev,
           [peerState.profile.walletAddress]: {
             name: peerState.profile.name,
-            addedAt: new Date().toISOString()
+            addedAt: new Date().toISOString(),
+            publicKey: peerState.profile.publicKey
           }
         }));
       }

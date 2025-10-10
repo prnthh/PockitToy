@@ -14,7 +14,7 @@ export default function ProfilePage({ myState, setMyState, sendPlayerState }: {
     const updateProfile = useCallback((key: string, value: any) => {
         const newProfile = { ...myState.profile, [key]: value };
         const newState = { ...myState, profile: newProfile };
-        
+
         setMyState(newState);
         sendPlayerState(newState);
         setSavedProfile(newProfile);
@@ -22,7 +22,7 @@ export default function ProfilePage({ myState, setMyState, sendPlayerState }: {
 
     const setWholeProfile = useCallback((newProfile: { [key: string]: any }) => {
         const newState = { ...myState, profile: newProfile };
-        
+
         setMyState(newState);
         sendPlayerState(newState);
         setSavedProfile(newProfile);
@@ -30,10 +30,21 @@ export default function ProfilePage({ myState, setMyState, sendPlayerState }: {
 
     // Handle wallet address updates when wallet connects
     useEffect(() => {
-        if (walletState.address && walletState.address !== myState.profile.walletAddress) {
-            updateProfile('walletAddress', walletState.address);
+        if ((walletState.address && (walletState.address !== myState.profile.walletAddress) ||
+            (walletState.publicKey && walletState.publicKey !== myState.profile.publicKey)
+        )) {
+            const newProfile = {
+                ...myState.profile,
+                walletAddress: walletState.address,
+                publicKey: walletState.publicKey
+            };
+            const newState = { ...myState, profile: newProfile };
+
+            setMyState(newState);
+            sendPlayerState(newState);
+            setSavedProfile(newProfile);
         }
-    }, [walletState.address, myState.profile.walletAddress, updateProfile]);
+    }, [walletState.address, myState.profile.walletAddress, walletState.publicKey, myState.profile.publicKey, setMyState, sendPlayerState, setSavedProfile]);
 
     return (
         <div className="h-full w-full overflow-y-auto noscrollbar p-2">
