@@ -47,7 +47,7 @@ export default function PeerList({ sendChat }: { sendChat: (msg: string, peer?: 
     const contacts = useMemo(() => {
         const result: Contact[] = [];
         const addressToPeerId = new Map<string, string>();
-        
+
         // Map wallet addresses to peer IDs
         Object.entries(peerStates).forEach(([peerId, state]) => {
             if (state.profile?.walletAddress) {
@@ -109,21 +109,20 @@ export default function PeerList({ sendChat }: { sendChat: (msg: string, peer?: 
     return (
         <div className="w-full p-2 h-full overflow-y-auto noscrollbar">
             <div className="font-bold mb-1">Contacts ({onlineCount} online, {friendsCount} friends)</div>
-            
+
             {contacts.map(contact => (
                 <div key={contact.id} className="text-[12px] mb-0.5 cursor-pointer"
                     onClick={() => setSelected(selected === contact.id ? null : contact.id)}
                     onPointerLeave={() => selected === contact.id && setSelected(null)}>
-                    
-                    <div className={`flex justify-between items-center rounded p-1 px-2 hover:bg-black/20 transition-all ${
-                        contact.isFriend && contact.isOnline ? 'bg-green-500/25' :
-                        contact.isOnline ? 'bg-blue-500/15' : 'bg-gray-500/10'
-                    }`}>
+
+                    <div className={`flex justify-between items-center rounded p-1 px-2 hover:bg-black/20 transition-all ${contact.isFriend && contact.isOnline ? 'bg-green-500/25' :
+                            contact.isOnline ? 'bg-blue-500/15' : 'bg-gray-500/10'
+                        }`}>
                         <span className="font-mono">{contact.name}</span>
                         <div className="flex items-center gap-1">
                             {contact.isOnline && <div className="w-2 h-2 bg-green-500 rounded-full" />}
                             <span className="text-black text-[10px]">
-                                {contact.walletAddress ? 
+                                {contact.walletAddress ?
                                     `${contact.walletAddress.slice(0, 6)}...${contact.walletAddress.slice(-4)}` :
                                     contact.peerId?.slice(0, 8)
                                 }
@@ -151,7 +150,7 @@ export default function PeerList({ sendChat }: { sendChat: (msg: string, peer?: 
                                 }}>Block</button>
                             )}
                             {contact.isFriend && (
-                                <button className={`${buttonStyle} bg-red-500/30 text-red-300`} 
+                                <button className={`${buttonStyle} bg-red-500/30 text-red-300`}
                                     onClick={(e) => {
                                         e.stopPropagation();
                                         deleteContact(contact.walletAddress!);
@@ -169,7 +168,7 @@ export default function PeerList({ sendChat }: { sendChat: (msg: string, peer?: 
             )}
 
             {dmTarget && (
-                <div className="fixed inset-0 bg-black/50 z-[2000] flex items-center justify-center" 
+                <div className="fixed inset-0 bg-black/50 z-[2000] flex items-center justify-center"
                     onClick={() => setDmTarget(null)}>
                     <div className="bg-[#222] p-5 rounded-xl min-w-[300px]" onClick={e => e.stopPropagation()}>
                         <div className="mb-2.5 text-[#8cf]">DM to {contacts.find(c => c.peerId === dmTarget || c.id === dmTarget)?.name}</div>

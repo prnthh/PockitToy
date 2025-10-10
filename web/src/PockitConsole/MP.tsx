@@ -52,7 +52,7 @@ export default function MP({ appId = 'pockit.world', roomId, children }: { appId
 
   useEffect(() => {
     let interval: number | null = null;
-    
+
     const heartbeat = () => {
       try {
         room.getPeers();
@@ -188,6 +188,8 @@ export default function MP({ appId = 'pockit.world', roomId, children }: { appId
   }, [room, sendPlayerState, getPeerStates])
 
   useEffect(() => {
+    if (!isLoaded) return;
+
     getBlob('profile').then(async (blob) => {
       if (blob) {
         try {
@@ -208,7 +210,7 @@ export default function MP({ appId = 'pockit.world', roomId, children }: { appId
         }
       }
     });
-  }, [getBlob, setMyState]);
+  }, [isLoaded]);
 
   // Listen for local position updates from parent
   useEffect(() => {
