@@ -153,9 +153,9 @@ export default function MP({ appId = 'pockit.world', roomId, children }: { appId
     getPeerStates(handlePeerState)
     getChat(handleChatMessage)
 
-    setConsoleMessages([
-      { peer: 'system', message: <div>Connected to pockit.world: {roomId} ❣️</div> }
-    ])
+    // setConsoleMessages([
+    //   { peer: 'system', message: <div>Connected to pockit.world: {roomId} ❣️</div> }
+    // ])
   }, [room, sendPlayerState, getPeerStates])
 
   // Listen for local position updates from parent

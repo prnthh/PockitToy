@@ -1,5 +1,6 @@
 import './App.css'
 import PockitToy from './PockitConsole/MP'
+import { ToyWalletProvider } from './PockitWallet/ToyWalletProvider';
 import { AudioProvider } from './shared/AudioProvider'
 import SkyShader from './shared/GLSLCanvas';
 import SaveBlobProvider from './shared/SaveBlobProvider'
@@ -11,7 +12,9 @@ function App() {
     <IframePositionWrapper>
       <AudioProvider>
         <SaveBlobProvider>
-          <PockitToy roomId='my-room-id' />
+          <ToyWalletProvider>
+            <PockitToy roomId='my-room-id' />
+          </ToyWalletProvider>
         </SaveBlobProvider>
       </AudioProvider>
     </IframePositionWrapper>

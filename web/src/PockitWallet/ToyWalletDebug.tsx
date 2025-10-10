@@ -1,82 +1,75 @@
 import { useState, useEffect } from 'react';
-
-interface SecureAccount { address: `0x${string}` }
-
-// Match the state shape used in ToyWalletProvider
-interface WalletState {
-    pin: string;
-    unlocked: boolean;
-    account: SecureAccount | null;
-    showPinInput: boolean;
-    walletExists: boolean;
-}
-
-interface UnsealedMessage {
-    message: string;
-    from?: string;
-}
+import { useToyWallet } from './ToyWalletProvider';
 
 interface Props {
-    walletState: WalletState;
-    initialTargetPublicKey: string;
-    error: string;
-    setError: (error: string) => void;
-    handleCopyAddress: () => Promise<void> | void;
-    handleCopyPrivateKey: () => Promise<void> | void;
-    handleSignMessage: (message: string, useIdentityMode: boolean) => Promise<string>;
-    handleCreateTestSeal: (message: string, targetPublicKey: string, useIdentityMode: boolean) => Promise<string>;
-    handleUnsealMessage: (sealedMessage: string) => Promise<UnsealedMessage | null>;
-    handleFileSelect: (file: File | null) => Promise<void> | void;
-    handleResetWallet: () => void;
     onClose: () => void;
 }
 
-export default function ToyWalletDebug({
-    walletState,
-    initialTargetPublicKey,
-    error,
-    handleCopyAddress,
-    handleCopyPrivateKey,
-    handleSignMessage,
-    handleCreateTestSeal,
-    handleUnsealMessage,
-    handleFileSelect,
-    handleResetWallet,
-    onClose,
-}: Props) {
+export default function ToyWalletDebug({ onClose }: Props) {
+    const wallet = useToyWallet();
+    const {
+        walletState,
+        handleSign,
+        handleSeal,
+        handleUnseal,
+        handleReset,
+        copyAddress,
+        handleFileSelect,
+        getPrivateKey,
+        keyExists
+    } = wallet;
+
     // Local UI state for debug panel
     const [message, setMessage] = useState('');
     const [signature, setSignature] = useState('');
     const [sealedMessage, setSealedMessage] = useState('');
     const [unsealedMessage, setUnsealedMessage] = useState('');
     const [unsealedFrom, setUnsealedFrom] = useState<string | undefined>();
-    const [targetPublicKey, setTargetPublicKey] = useState(initialTargetPublicKey);
+    const [targetPublicKey, setTargetPublicKey] = useState(walletState.publicKey);
     const [, setCopyFeedback] = useState(false);
     const [useIdentityMode, setUseIdentityMode] = useState(true);
 
     // Update target public key when wallet changes
     useEffect(() => {
-        if (initialTargetPublicKey && !targetPublicKey) {
-            setTargetPublicKey(initialTargetPublicKey);
+        if (walletState.publicKey && !targetPublicKey) {
+            setTargetPublicKey(walletState.publicKey);
         }
-    }, [initialTargetPublicKey]);
+    }, [walletState.publicKey, targetPublicKey]);
+
+    const handleCopyPrivateKey = async () => {
+        const privateKey = await getPrivateKey();
+        if (!privateKey) return;
+        try {
+            const blob = new Blob([privateKey], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'pockit.key';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            setCopyFeedback(true);
+            setTimeout(() => setCopyFeedback(false), 2000);
+        } catch { }
+    };
 
     const onSignMessage = async () => {
-        const result = await handleSignMessage(message, useIdentityMode);
+        const result = await handleSign(message, useIdentityMode);
         if (result) {
             setSignature(result);
         }
     };
 
     const onCreateTestSeal = async () => {
-        const result = await handleCreateTestSeal(message, targetPublicKey, useIdentityMode);
+        const result = await handleSeal(message, targetPublicKey, useIdentityMode);
         if (result) {
             setSealedMessage(result);
         }
     };
 
     const onUnsealMessage = async () => {
-        const result = await handleUnsealMessage(sealedMessage);
+        const result = await handleUnseal(sealedMessage);
         if (result) {
             setUnsealedMessage(result.message);
             setUnsealedFrom(result.from);
@@ -84,7 +77,7 @@ export default function ToyWalletDebug({
     };
 
     const onCopyAddress = async () => {
-        await handleCopyAddress();
+        await copyAddress();
         setCopyFeedback(true);
         setTimeout(() => setCopyFeedback(false), 2000);
     };
@@ -129,13 +122,13 @@ export default function ToyWalletDebug({
                                     <div className="bg-gray-700/50 rounded px-2 py-1">
                                         <div className="text-gray-400 text-xs mb-1">Address</div>
                                         <div className="font-mono text-gray-200 text-xs break-all">
-                                            {walletState.account?.address}
+                                            {walletState.address}
                                         </div>
                                     </div>
                                     <div className="bg-gray-700/50 rounded px-2 py-1">
                                         <div className="text-gray-400 text-xs mb-1">Public Key</div>
                                         <div className="font-mono text-gray-200 text-xs break-all max-h-20 overflow-y-auto">
-                                            {initialTargetPublicKey}
+                                            {walletState.publicKey}
                                         </div>
                                     </div>
                                     <div className="flex space-x-2">
@@ -290,12 +283,12 @@ export default function ToyWalletDebug({
                             </div>
                         </div>
                     </div>
-                ) : walletState.walletExists ? (
+                ) : keyExists() ? (
                     <div className="flex items-center justify-center py-8">
                         <div className="text-center space-y-3">
                             <div className="text-gray-400 text-sm">🔒 Wallet Locked</div>
                             <button
-                                onClick={handleResetWallet}
+                                onClick={handleReset}
                                 className="bg-red-600/20 hover:bg-red-600/30 text-red-300 px-4 py-2 rounded text-xs transition-colors border border-red-600/30"
                                 title="Clear wallet data and start fresh"
                             >
@@ -326,13 +319,13 @@ export default function ToyWalletDebug({
                 )}
 
                 {/* Error Display */}
-                {error && (
+                {walletState.error && (
                     <div className="mt-3 bg-red-900/20 border border-red-600/30 rounded px-3 py-2">
                         <div className="flex items-center space-x-2">
                             <div className="w-1.5 h-1.5 bg-red-400 rounded-full"></div>
                             <span className="text-red-400 text-xs font-semibold">ERROR</span>
                         </div>
-                        <div className="text-red-300 text-xs mt-1">{error}</div>
+                        <div className="text-red-300 text-xs mt-1">{walletState.error}</div>
                     </div>
                 )}
             </div>

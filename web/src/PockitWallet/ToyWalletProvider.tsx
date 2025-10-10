@@ -1,8 +1,50 @@
-import { useState } from "react";
+import { useState, createContext, useContext, type ReactNode } from "react";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import { hexToBytes } from "viem";
-import ToyWalletDebug from "./ToyWalletDebug";
 import * as secp from '@noble/secp256k1';
+import ToyWalletDebug from './ToyWalletDebug';
+
+// ==================== TYPES ====================
+interface UnsealedMessage {
+    message: string;
+    from?: string;
+}
+
+interface WalletState {
+    unlocked: boolean;
+    address: string;
+    publicKey: string;
+    showPinInput: boolean;
+    error: string;
+}
+
+interface ToyWalletContextType {
+    // State
+    walletState: WalletState;
+
+    // Core wallet functions
+    unlock: (pin: string) => Promise<void>;
+    lock: () => void;
+    getPrivateKey: () => Promise<`0x${string}` | null>;
+
+    // Cryptographic functions
+    handleSign: (message: string, useIdentityMode: boolean) => Promise<string>;
+    handleSeal: (message: string, targetPublicKey: string, useIdentityMode: boolean) => Promise<string>;
+    handleUnseal: (sealedMessage: string) => Promise<UnsealedMessage | null>;
+
+    // Utility functions
+    handleReset: () => void;
+    copyAddress: () => Promise<void>;
+    copyPublicKey: () => Promise<void>;
+    handleFileSelect: (file: File | null) => Promise<void>;
+
+    // UI state management
+    setShowPinInput: (show: boolean) => void;
+    setError: (error: string) => void;
+    keyExists: () => boolean;
+}
+
+const ToyWalletContext = createContext<ToyWalletContextType | null>(null);
 
 // ==================== SIMPLE UTILITIES ====================
 const toBase64 = (b: Uint8Array) => btoa(String.fromCharCode(...b));
@@ -76,11 +118,6 @@ async function sealMessage(
         from: fromAddress,
         data: toBase64(new Uint8Array(encrypted))
     });
-}
-
-interface UnsealedMessage {
-    message: string;
-    from?: string;
 }
 
 async function unsealMessage(
@@ -226,18 +263,14 @@ function removeKey() {
     localStorage.removeItem('wallet');
 }
 
-// ==================== MAIN COMPONENT ====================
-function ToyWallet() {
+// ==================== PROVIDER IMPLEMENTATION ====================
+export function ToyWalletProvider({ children }: { children: ReactNode }) {
     const [currentPin, setCurrentPin] = useState('');
     const [unlocked, setUnlocked] = useState(false);
     const [address, setAddress] = useState('');
     const [publicKey, setPublicKey] = useState('');
     const [showPinInput, setShowPinInput] = useState(false);
     const [error, setError] = useState('');
-
-    // Minimal UI state
-    const [showDebugPanel, setShowDebugPanel] = useState(false);
-    const [copyFeedback, setCopyFeedback] = useState(false);
 
     // Helper to get private key when needed
     const getPrivateKey = async (): Promise<`0x${string}` | null> => {
@@ -285,7 +318,7 @@ function ToyWallet() {
         setShowPinInput(false);
     };
 
-    const handleSign = async (message: string, useIdentityMode: boolean) => {
+    const handleSign = async (message: string, useIdentityMode: boolean): Promise<string> => {
         if (!unlocked || !message.trim()) {
             setError('Unlock wallet and enter a message');
             return '';
@@ -316,8 +349,6 @@ function ToyWallet() {
             const sig = await account.signMessage({ message });
 
             // Create signed message envelope
-            // If signed with identity, include 'f' (from) so recipient knows who signed it
-            // If signed with ephemeral key, no 'f' field - signature is valid but untraceable
             const signedEnvelope = JSON.stringify({
                 m: message,
                 s: sig,
@@ -332,7 +363,7 @@ function ToyWallet() {
         }
     };
 
-    const handleSeal = async (message: string, targetPublicKey: string, useIdentityMode: boolean) => {
+    const handleSeal = async (message: string, targetPublicKey: string, useIdentityMode: boolean): Promise<string> => {
         if (!message.trim()) {
             setError('Enter a message');
             return '';
@@ -356,7 +387,7 @@ function ToyWallet() {
         }
     };
 
-    const handleUnseal = async (sealedMessage: string) => {
+    const handleUnseal = async (sealedMessage: string): Promise<UnsealedMessage | null> => {
         if (!unlocked || !sealedMessage.trim()) {
             setError('Unlock wallet and enter sealed message');
             return null;
@@ -377,7 +408,92 @@ function ToyWallet() {
         lock();
     };
 
+    const copyAddress = async () => {
+        if (!address) return;
+        try {
+            await navigator.clipboard.writeText(address);
+        } catch { }
+    };
+
+    const copyPublicKey = async () => {
+        if (!publicKey) return;
+        try {
+            await navigator.clipboard.writeText(publicKey);
+        } catch { }
+    };
+
+    const handleFileSelect = async (file: File | null) => {
+        if (!file) return;
+        try {
+            const text = await file.text();
+            const key = text.trim();
+            if (!key.startsWith('0x') || key.length !== 66) throw new Error('Invalid format');
+            const newPin = prompt('Enter a 4-digit PIN:');
+            if (!newPin || newPin.length !== 4 || !/^\d{4}$/.test(newPin)) throw new Error('Invalid PIN');
+            await saveEncryptedKey(key as `0x${string}`, newPin);
+            setError('');
+        } catch (err: any) {
+            setError(err.message);
+        }
+    };
+
+    const walletState: WalletState = {
+        unlocked,
+        address,
+        publicKey,
+        showPinInput,
+        error
+    };
+
+    const contextValue: ToyWalletContextType = {
+        walletState,
+        unlock,
+        lock,
+        getPrivateKey,
+        handleSign,
+        handleSeal,
+        handleUnseal,
+        handleReset,
+        copyAddress,
+        copyPublicKey,
+        handleFileSelect,
+        setShowPinInput,
+        setError,
+        keyExists
+    };
+
+    return (
+        <ToyWalletContext.Provider value={contextValue}>
+            {children}
+        </ToyWalletContext.Provider>
+    );
+}
+
+// ==================== CUSTOM HOOK ====================
+export function useToyWallet() {
+    const context = useContext(ToyWalletContext);
+    if (!context) {
+        throw new Error('useToyWallet must be used within a ToyWalletProvider');
+    }
+    return context;
+}
+
+// ==================== WALLET UI COMPONENT ====================
+export function ToyWallet() {
+    const {
+        walletState,
+        unlock,
+        lock,
+        copyPublicKey,
+        setShowPinInput,
+        setError
+    } = useToyWallet();
+
+    const { unlocked, publicKey, showPinInput, error } = walletState;
+
     const [pinInput, setPinInput] = useState('');
+    const [showDebugPanel, setShowDebugPanel] = useState(false);
+    const [copyFeedback, setCopyFeedback] = useState(false);
 
     const handlePinChange = (value: string) => {
         const sanitized = value.replace(/\D/g, '').slice(0, 4);
@@ -392,22 +508,10 @@ function ToyWallet() {
         }
     };
 
-    const copyAddress = async () => {
-        if (!address) return;
-        try {
-            await navigator.clipboard.writeText(address);
-            setCopyFeedback(true);
-            setTimeout(() => setCopyFeedback(false), 2000);
-        } catch { }
-    };
-
-    const copyPublicKey = async () => {
-        if (!publicKey) return;
-        try {
-            await navigator.clipboard.writeText(publicKey);
-            setCopyFeedback(true);
-            setTimeout(() => setCopyFeedback(false), 2000);
-        } catch { }
+    const handleCopyPublicKey = async () => {
+        await copyPublicKey();
+        setCopyFeedback(true);
+        setTimeout(() => setCopyFeedback(false), 2000);
     };
 
     return (
@@ -432,7 +536,7 @@ function ToyWallet() {
                 {unlocked ? (
                     <>
                         <button
-                            onClick={copyPublicKey}
+                            onClick={handleCopyPublicKey}
                             className="text-white text-sm font-mono truncate max-w-64 hover:text-blue-300 transition-colors cursor-pointer"
                             title="Copy public key"
                         >
@@ -472,58 +576,8 @@ function ToyWallet() {
             </div>
 
             {showDebugPanel && (
-                <ToyWalletDebug
-                    walletState={{
-                        unlocked,
-                        account: address ? { address: address as `0x${string}` } : null,
-                        pin: '',
-                        showPinInput,
-                        walletExists: keyExists()
-                    }}
-                    initialTargetPublicKey={publicKey}
-                    error={error}
-                    setError={setError}
-                    handleCopyAddress={copyAddress}
-                    handleCopyPrivateKey={async () => {
-                        const privateKey = await getPrivateKey();
-                        if (!privateKey) return;
-                        try {
-                            const blob = new Blob([privateKey], { type: 'text/plain' });
-                            const url = URL.createObjectURL(blob);
-                            const a = document.createElement('a');
-                            a.href = url;
-                            a.download = 'pockit.key';
-                            document.body.appendChild(a);
-                            a.click();
-                            document.body.removeChild(a);
-                            URL.revokeObjectURL(url);
-                            setCopyFeedback(true);
-                            setTimeout(() => setCopyFeedback(false), 2000);
-                        } catch { }
-                    }}
-                    handleSignMessage={handleSign}
-                    handleCreateTestSeal={handleSeal}
-                    handleUnsealMessage={handleUnseal}
-                    handleFileSelect={async (file: File | null) => {
-                        if (!file) return;
-                        try {
-                            const text = await file.text();
-                            const key = text.trim();
-                            if (!key.startsWith('0x') || key.length !== 66) throw new Error('Invalid format');
-                            const newPin = prompt('Enter a 4-digit PIN:');
-                            if (!newPin || newPin.length !== 4 || !/^\d{4}$/.test(newPin)) throw new Error('Invalid PIN');
-                            await saveEncryptedKey(key as `0x${string}`, newPin);
-                            setError('');
-                        } catch (err: any) {
-                            setError(err.message);
-                        }
-                    }}
-                    handleResetWallet={handleReset}
-                    onClose={() => setShowDebugPanel(false)}
-                />
+                <ToyWalletDebug onClose={() => setShowDebugPanel(false)} />
             )}
         </div>
     );
 }
-
-export default ToyWallet;
