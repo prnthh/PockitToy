@@ -18,7 +18,7 @@ export default function ChatBox({ consoleMessages, chatInput, setChatInput, send
         }
     }, [consoleMessages])
 
-    const isMe = (peerId: string) => { return peerId === 'me' }
+    const isMe = (peerId: string) => peerId === 'me'
     const myName = myState?.profile?.name || 'me';
 
     return (

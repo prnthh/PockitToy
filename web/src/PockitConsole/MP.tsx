@@ -1,7 +1,7 @@
 "use client";
 
 import { joinRoom, type DataPayload } from 'trystero'
-import { useEffect, useState, createContext, useMemo, useRef, type ReactNode } from 'react'
+import { useEffect, useState, createContext, useMemo, useRef, useCallback, type ReactNode } from 'react'
 import PeerList from './PeerList'
 import ProfilePage from './ProfilePage'
 import ChatBox from './ChatBox'
@@ -106,19 +106,19 @@ export default function MP({ appId = 'pockit.world', roomId, children }: { appId
   const [consoleMessages, setConsoleMessages] = useState<Array<{ peer: string, message: string | ReactNode }>>([])
   const { playSound } = useAudio();
 
-  const handlePeerJoin = (peer: string) => {
+  const handlePeerJoin = useCallback((peer: string) => {
     sendPlayerState(myStateRef.current, peer)
-  }
+  }, [sendPlayerState])
 
-  const handlePeerLeave = (peer: string) => {
+  const handlePeerLeave = useCallback((peer: string) => {
     setPeerStates(states => {
       const newStates = { ...states }
       delete newStates[peer]
       return newStates
     })
-  }
+  }, [])
 
-  const handlePeerState = (state: any, peer: string) => {
+  const handlePeerState = useCallback((state: any, peer: string) => {
     if (state && typeof state.profile === 'object') {
 
       // todo if a peer state has a wallet address and is signed, verify it or drop it
@@ -137,21 +137,21 @@ export default function MP({ appId = 'pockit.world', roomId, children }: { appId
         }
       })
     }
-  }
+  }, [])
 
-  // Separate effect to handle address book updates when isLoaded changes
+  // Handle address book updates when new peers join with wallet addresses
   useEffect(() => {
     if (!isLoaded) return;
 
-    // Update address book for all peers with wallet addresses
-    Object.entries(peerStates).forEach(([, peerState]) => {
+    // Only update address book for new wallet addresses
+    Object.values(peerStates).forEach((peerState) => {
       if (peerState.profile?.walletAddress) {
         addToAddressBook(peerState.profile.walletAddress, peerState.profile.name);
       }
     });
-  }, [isLoaded, peerStates, addToAddressBook]);
+  }, [isLoaded, Object.keys(peerStates).length, addToAddressBook]); // Only run when peer count changes
 
-  const handleChatMessage = (data: DataPayload, peer: string) => {
+  const handleChatMessage = useCallback((data: DataPayload, peer: string) => {
     if (typeof data === 'string') {
       if (data.startsWith('/')) {
         const command = data.slice(1).trim().split(' ')[0]
@@ -177,7 +177,7 @@ export default function MP({ appId = 'pockit.world', roomId, children }: { appId
         }
       })
     }
-  }
+  }, [roomId])
 
   // Setup Trystero event listeners for peer join/leave and state updates
   useEffect(() => {
@@ -185,7 +185,7 @@ export default function MP({ appId = 'pockit.world', roomId, children }: { appId
     room.onPeerLeave(handlePeerLeave)
     getPeerStates(handlePeerState)
     getChat(handleChatMessage)
-  }, [room, sendPlayerState, getPeerStates])
+  }, [room, getPeerStates, getChat, handlePeerJoin, handlePeerLeave, handlePeerState, handleChatMessage])
 
   useEffect(() => {
     if (!isLoaded) return;
@@ -217,11 +217,12 @@ export default function MP({ appId = 'pockit.world', roomId, children }: { appId
     const handler = (e: CustomEvent) => {
       const pos = e.detail as [number, number, number]
       setMyState(state => ({ ...state, position: pos }))
-      sendPlayerState({ ...myState, position: pos })
+      // Use myStateRef to get current state without stale closure
+      sendPlayerState({ ...myStateRef.current, position: pos })
     }
     window.addEventListener('mp-pos', handler as EventListener)
     return () => window.removeEventListener('mp-pos', handler as EventListener)
-  }, [])
+  }, [sendPlayerState])
 
   // Listen for room events from parent, room is stateless
   useEffect(() => {
@@ -230,7 +231,7 @@ export default function MP({ appId = 'pockit.world', roomId, children }: { appId
     }
     window.addEventListener('mp-trigger', handler as EventListener)
     return () => window.removeEventListener('mp-trigger', handler as EventListener)
-  }, [])
+  }, [sendChat])
 
   const pages = useMemo(() => ({
     profile: <ProfilePage

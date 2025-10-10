@@ -1,6 +1,6 @@
 import { useSaveBlob } from "@/shared/SaveBlobProvider";
 import { ToyWallet, useToyWallet } from "@/PockitWallet/ToyWalletProvider";
-import { useEffect } from "react";
+import { useEffect, useCallback } from "react";
 
 export default function ProfilePage({ myState, setMyState, sendPlayerState }: {
     myState: { position: [number, number, number], profile: { [key: string]: any } },
@@ -10,27 +10,34 @@ export default function ProfilePage({ myState, setMyState, sendPlayerState }: {
 
     const { saveBlob, isLoaded } = useSaveBlob();
 
-    const updateProfile = (key: string, value: any) => {
-        const newProfile = {
-            ...myState.profile,
-            [key]: value
-        }
+    // Only memoize this to prevent the Profile component from re-rendering unnecessarily
+    const updateProfile = useCallback((key: string, value: any) => {
+        const newProfile = { ...myState.profile, [key]: value }
 
         setMyState(state => {
-            const newState = {
-                ...state,
-                profile: newProfile
-            }
+            const newState = { ...state, profile: newProfile }
             sendPlayerState(newState)
             return newState
         });
 
-        // Save profile to blob storage only if provider is loaded
         if (isLoaded) {
-            const profileData = new Blob([JSON.stringify(newProfile)], { type: 'application/json' });
-            saveBlob('profile', profileData);
+            saveBlob('profile', new Blob([JSON.stringify(newProfile)], { type: 'application/json' }));
         }
-    }
+    }, [myState.profile, setMyState, sendPlayerState, isLoaded, saveBlob])
+
+    // Simplify JSON input handler
+    const handleJsonInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        try {
+            const obj = JSON.parse(e.target.value);
+            setMyState(state => {
+                const newState = { ...state, profile: { ...state.profile, ...obj } }
+                sendPlayerState(newState)
+                return newState
+            })
+        } catch {
+            // Invalid JSON, ignore
+        }
+    };
 
     return (
         <div className="h-full w-full overflow-y-auto noscrollbar p-2">
@@ -38,25 +45,8 @@ export default function ProfilePage({ myState, setMyState, sendPlayerState }: {
 
             <input
                 value={JSON.stringify(myState.profile)}
-                onChange={e => {
-                    const val = e.target.value;
-                    try {
-                        const obj = JSON.parse(val);
-                        setMyState(state => {
-                            const newState = {
-                                ...state,
-                                profile: {
-                                    ...state.profile,
-                                    ...obj
-                                }
-                            }
-                            sendPlayerState(newState)
-                            return newState
-                        })
-                    } catch (err) {
-                        // Invalid JSON, ignore
-                    }
-                }} className="w-full p-2 rounded border-none bg-[#333] text-white text-[10px] font-mono mb-2"
+                onChange={handleJsonInputChange}
+                className="w-full p-2 rounded border-none bg-[#333] text-white text-[10px] font-mono mb-2"
             />
             <div className="text-xs" onClick={() => {
                 if ('serviceWorker' in navigator) {
@@ -81,7 +71,6 @@ const Profile = ({ state, updateProfile }: {
     const { isLoaded } = useSaveBlob();
 
     useEffect(() => {
-        // Only update profile address when both wallet is unlocked and SaveBlobProvider is ready
         if (walletState.address && isLoaded && updateProfile) {
             updateProfile('walletAddress', walletState.address);
         }
@@ -93,10 +82,7 @@ const Profile = ({ state, updateProfile }: {
             <input
                 type="text"
                 value={state.profile.name || ''}
-                onChange={e => {
-                    const name = e.target.value;
-                    updateProfile?.('name', name);
-                }}
+                onChange={e => updateProfile?.('name', e.target.value)}
                 placeholder='nickname'
                 className="font-mono text-xl p-1 rounded border-none bg-transparent text-black outline-none w-[70%]"
             />
@@ -119,9 +105,7 @@ const Profile = ({ state, updateProfile }: {
             {(['oni', 'milady']).map((avatar) => (
                 <button
                     key={avatar}
-                    onClick={() => {
-                        updateProfile?.('avatar', avatar);
-                    }}
+                    onClick={() => updateProfile?.('avatar', avatar)}
                     className="text-[12px] px-3 py-1 rounded bg-gradient-to-r from-[#1976d2] to-[#8cf] font-bold border shadow mb-2 mt-1 cursor-pointer"
                     style={{
                         boxShadow: '0 2px 8px 0 #8cf8',
