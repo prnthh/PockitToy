@@ -1,324 +1,152 @@
 import { useState, useEffect } from 'react';
 import { useToyWallet } from './ToyWalletProvider';
 
-interface Props {
-    onClose: () => void;
-}
+interface Props { onClose: () => void; }
 
 export default function ToyWalletDebug({ onClose }: Props) {
-    const wallet = useToyWallet();
-    const {
-        walletState,
-        handleSign,
-        handleSeal,
-        handleUnseal,
-        handleReset,
-        copyAddress,
-        handleFileSelect,
-        getPrivateKey,
-        keyExists
-    } = wallet;
+    const { walletState, handleSign, handleSeal, handleUnseal, handleVerify, handleReset, copyAddress, copyPublicKey, handleFileSelect, getPrivateKey, keyExists } = useToyWallet();
 
-    // Local UI state for debug panel
     const [message, setMessage] = useState('');
-    const [signature, setSignature] = useState('');
-    const [sealedMessage, setSealedMessage] = useState('');
-    const [unsealedMessage, setUnsealedMessage] = useState('');
-    const [unsealedFrom, setUnsealedFrom] = useState<string | undefined>();
-    const [targetPublicKey, setTargetPublicKey] = useState(walletState.publicKey);
-    const [, setCopyFeedback] = useState(false);
+    const [output, setOutput] = useState('');
+    const [result, setResult] = useState<{ type: 'verify' | 'unseal'; valid?: boolean; message: string; from?: string } | null>(null);
+    const [targetKey, setTargetKey] = useState(walletState.publicKey);
     const [useIdentityMode, setUseIdentityMode] = useState(true);
+    const [copyFeedback, setCopyFeedback] = useState(false);
 
-    // Update target public key when wallet changes
     useEffect(() => {
-        if (walletState.publicKey && !targetPublicKey) {
-            setTargetPublicKey(walletState.publicKey);
+        if (walletState.publicKey && !targetKey) setTargetKey(walletState.publicKey);
+    }, [walletState.publicKey, targetKey]);
+
+    const showFeedback = () => { setCopyFeedback(true); setTimeout(() => setCopyFeedback(false), 2000); };
+    const isSealed = (str: string) => {
+        try { const p = JSON.parse(str); return p?.senderPubKey && p?.from && p?.data; } catch { return false; }
+    };
+
+    const actions = {
+        sign: async () => { const r = await handleSign(message, useIdentityMode); if (r) { setOutput(r); setResult(null); } },
+        seal: async () => { const r = await handleSeal(message, targetKey, useIdentityMode); if (r) { setOutput(r); setResult(null); } },
+        verify: async () => { const r = await handleVerify(output); if (r) setResult({ type: 'verify', ...r }); },
+        unseal: async () => { const r = await handleUnseal(output); if (r) setResult({ type: 'unseal', ...r }); },
+        copyAddr: async () => { await copyAddress(); showFeedback(); },
+        copyPubKey: async () => { await copyPublicKey(); showFeedback(); },
+        exportKey: async () => {
+            const key = await getPrivateKey();
+            if (key) {
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(new Blob([key]));
+                a.download = 'pockit.key';
+                a.click();
+                showFeedback();
+            }
         }
-    }, [walletState.publicKey, targetPublicKey]);
-
-    const handleCopyPrivateKey = async () => {
-        const privateKey = await getPrivateKey();
-        if (!privateKey) return;
-        try {
-            const blob = new Blob([privateKey], { type: 'text/plain' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = 'pockit.key';
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-            setCopyFeedback(true);
-            setTimeout(() => setCopyFeedback(false), 2000);
-        } catch { }
-    };
-
-    const onSignMessage = async () => {
-        const result = await handleSign(message, useIdentityMode);
-        if (result) {
-            setSignature(result);
-        }
-    };
-
-    const onCreateTestSeal = async () => {
-        const result = await handleSeal(message, targetPublicKey, useIdentityMode);
-        if (result) {
-            setSealedMessage(result);
-        }
-    };
-
-    const onUnsealMessage = async () => {
-        const result = await handleUnseal(sealedMessage);
-        if (result) {
-            setUnsealedMessage(result.message);
-            setUnsealedFrom(result.from);
-        }
-    };
-
-    const onCopyAddress = async () => {
-        await copyAddress();
-        setCopyFeedback(true);
-        setTimeout(() => setCopyFeedback(false), 2000);
-    };
-
-    const onCopyPrivateKey = async () => {
-        await handleCopyPrivateKey();
-        setCopyFeedback(true);
-        setTimeout(() => setCopyFeedback(false), 2000);
     };
     return (
-        <div className="fixed -top-[calc(50vh-100%)] left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-gray-900/95 backdrop-blur-sm border border-gray-700 rounded-lg shadow-2xl text-xs max-w-4xl w-full z-50">
-            {/* Header */}
+        <div className="fixed -top-[calc(50vh-100%)] left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-gray-900/95 backdrop-blur-sm border border-gray-700 rounded-lg shadow-2xl text-xs max-w-4xl w-full z-50 max-h-[90vh] overflow-y-auto noscrollbar">
             <div className="bg-gray-800/50 px-3 py-2 border-b border-gray-700 flex items-center justify-between">
-                <div className="flex items-center space-x-2">
+                <div className='w-2' />
+
+                <div className="flex justify-center items-center space-x-2">
                     <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
                     <span className="text-gray-300 font-mono text-xs font-semibold">TOY WALLET DEBUG</span>
                 </div>
-                <button
-                    onClick={onClose}
-                    className="text-gray-400 hover:text-white transition-colors text-xs"
-                    title="Close debug panel"
-                >
-                    ✕
-                </button>
+                <button onClick={onClose} className="text-gray-400 hover:text-white transition-colors text-xs">✕</button>
             </div>
 
-            {/* Content */}
-            <div className="p-3">
+            <div className="p-4">
                 {walletState.unlocked ? (
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                        {/* Wallet Management Column */}
-                        <div className="space-y-3">
-                            <div className="bg-gray-800/30 rounded p-3 border border-gray-700">
-                                <div className="flex items-center justify-between mb-2">
-                                    <h3 className="text-gray-300 font-semibold text-xs">WALLET</h3>
-                                    <div className="flex space-x-1">
-                                        <div className="w-1.5 h-1.5 bg-green-400 rounded-full"></div>
-                                        <span className="text-green-400 text-xs">ACTIVE</span>
-                                    </div>
-                                </div>
-                                <div className="space-y-2">
-                                    <div className="bg-gray-700/50 rounded px-2 py-1">
-                                        <div className="text-gray-400 text-xs mb-1">Address</div>
-                                        <div className="font-mono text-gray-200 text-xs break-all">
-                                            {walletState.address}
-                                        </div>
-                                    </div>
-                                    <div className="bg-gray-700/50 rounded px-2 py-1">
-                                        <div className="text-gray-400 text-xs mb-1">Public Key</div>
-                                        <div className="font-mono text-gray-200 text-xs break-all max-h-20 overflow-y-auto">
-                                            {walletState.publicKey}
-                                        </div>
-                                    </div>
-                                    <div className="flex space-x-2">
-                                        <button
-                                            onClick={onCopyAddress}
-                                            className="flex-1 bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 px-2 py-1 rounded text-xs transition-colors border border-blue-600/30"
-                                            title="Copy address"
-                                        >
-                                            📋 Addr
-                                        </button>
-                                        <button
-                                            onClick={onCopyPrivateKey}
-                                            className="flex-1 bg-red-600/20 hover:bg-red-600/30 text-red-300 px-2 py-1 rounded text-xs transition-colors border border-red-600/30"
-                                            title="Download private key as pockit.key file (dangerous!)"
-                                        >
-                                            � Export
-                                        </button>
-                                    </div>
-                                </div>
+                    <div className="space-y-6">
+                        {/* Wallet Info */}
+                        <div className="bg-gray-800/30 rounded-lg p-3 border border-gray-700 grid grid-cols-2 gap-4">
+                            <button onClick={actions.copyAddr} className="bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 px-2 py-1 rounded text-xs transition-colors border border-blue-600/30">📋 Copy Address</button>
+                            <div className="flex items-center justify-center space-x-2">
+                                <div className="w-1.5 h-1.5 bg-green-400 rounded-full"></div>
+                                <span className="text-green-400 text-xs font-mono">WALLET ACTIVE</span>
                             </div>
+                            <button onClick={actions.copyPubKey} className="bg-green-600/20 hover:bg-green-600/30 text-green-300 px-2 py-1 rounded text-xs transition-colors border border-green-600/30">🔑 Copy Public Key</button>
+                            <button onClick={actions.exportKey} className="bg-red-600/20 hover:bg-red-600/30 text-red-300 px-2 py-1 rounded text-xs transition-colors border border-red-600/30">💾 Export Key</button>
                         </div>
 
-                        {/* Crypto Operations Column */}
-                        <div className="space-y-3">
-                            <div className="bg-gray-800/30 rounded p-3 border border-gray-700">
-                                <h3 className="text-gray-300 font-semibold text-xs mb-2">CRYPTO OPS</h3>
-                                <div className="space-y-3">
-                                    {/* Message Input */}
-                                    <input
-                                        type="text"
-                                        value={message}
-                                        onChange={(e) => setMessage(e.target.value)}
-                                        placeholder="Message to sign/seal..."
-                                        className="w-full bg-gray-700/50 border border-gray-600 rounded px-2 py-1 text-gray-200 text-xs focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20"
-                                    />
+                        {/* Input Section */}
+                        <div className="bg-gray-800/30 rounded-lg p-4 border border-gray-700 space-y-4">
+                            <h3 className="text-blue-300 font-semibold text-sm mb-3 flex items-center">
+                                <span className="bg-blue-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs mr-2">1</span>
+                                INPUT & SETTINGS
+                            </h3>
 
-                                    {/* Target Public Key Input */}
-                                    <input
-                                        type="text"
-                                        value={targetPublicKey}
-                                        onChange={(e) => setTargetPublicKey(e.target.value)}
-                                        placeholder="Recipient public key (hex, 0x... or raw)"
-                                        className="w-full bg-gray-700/50 border border-gray-600 rounded px-2 py-1 text-gray-200 text-xs focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20"
-                                    />
+                            <textarea value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Enter your message here..." className="w-full bg-gray-700/50 border border-gray-600 rounded-lg px-3 py-2 text-gray-200 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 resize-none" rows={3} />
 
-                                    {/* Unified Mode Toggle */}
-                                    <div className="bg-gray-700/50 rounded px-2 py-1">
-                                        <div className="flex items-center justify-between">
-                                            <span className="text-gray-400 text-xs">Mode</span>
-                                            <button
-                                                onClick={() => setUseIdentityMode(!useIdentityMode)}
-                                                className={`px-2 py-0.5 rounded text-xs transition-colors ${useIdentityMode
-                                                    ? 'bg-green-600/20 text-green-300 border border-green-600/30'
-                                                    : 'bg-purple-600/20 text-purple-300 border border-purple-600/30'
-                                                    }`}
-                                            >
-                                                {useIdentityMode ? '🔑 Identity' : '👻 Anonymous'}
-                                            </button>
-                                        </div>
-                                    </div>
-
-                                    {/* Action Buttons */}
-                                    <div className="flex space-x-1">
-                                        <button
-                                            onClick={onSignMessage}
-                                            className="flex-1 bg-green-600/20 hover:bg-green-600/30 text-green-300 px-2 py-1 rounded text-xs transition-colors border border-green-600/30 disabled:opacity-50"
-                                            disabled={!message.trim()}
-                                            title="Sign message"
-                                        >
-                                            ✍️ Sign
-                                        </button>
-                                        <button
-                                            onClick={onCreateTestSeal}
-                                            className="flex-1 bg-yellow-600/20 hover:bg-yellow-600/30 text-yellow-300 px-2 py-1 rounded text-xs transition-colors border border-yellow-600/30 disabled:opacity-50"
-                                            disabled={!message.trim() || !targetPublicKey.trim()}
-                                            title="Seal with public key"
-                                        >
-                                            🔒 Seal
-                                        </button>
-                                    </div>
-
-                                    {/* Signature Display */}
-                                    {signature && (
-                                        <div className="bg-green-900/20 border border-green-600/30 rounded px-2 py-1">
-                                            <div className="flex items-center justify-between mb-1">
-                                                <span className="text-green-400 text-xs font-semibold">SIGNED MESSAGE</span>
-                                                <button
-                                                    onClick={() => setSignature('')}
-                                                    className="text-green-400 hover:text-green-300 text-xs"
-                                                    title="Clear"
-                                                >
-                                                    ✕
-                                                </button>
-                                            </div>
-                                            <div className="font-mono text-green-200 text-xs break-all max-h-24 overflow-y-auto">
-                                                {signature}
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {/* Sealed Message Input */}
-                                    <textarea
-                                        value={sealedMessage}
-                                        onChange={(e) => setSealedMessage(e.target.value)}
-                                        placeholder="Sealed message..."
-                                        className="w-full bg-gray-700/50 border border-gray-600 rounded px-2 py-1 text-gray-200 text-xs focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 resize-none"
-                                        rows={2}
-                                    />
-
-                                    {/* Unseal Button */}
-                                    <button
-                                        onClick={onUnsealMessage}
-                                        className="w-full bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 px-2 py-1 rounded text-xs transition-colors border border-blue-600/30 disabled:opacity-50"
-                                        disabled={!sealedMessage.trim()}
-                                    >
-                                        🔓 Unseal
+                            <div className='flex justify-around items-end text-center'>
+                                <div className='flex flex-col items-center'>
+                                    <button onClick={actions.sign} disabled={!message.trim()} className="bg-green-600/20 hover:bg-green-600/30 text-green-300 px-6 py-2 rounded-lg text-sm transition-colors border border-green-600/30 disabled:opacity-50 flex items-center space-x-2">
+                                        <span>✍️ Sign</span>
                                     </button>
-
-                                    {/* Unsealed Message Display */}
-                                    {unsealedMessage && (
-                                        <div className="bg-green-900/20 border border-green-600/30 rounded px-2 py-1">
-                                            <div className="flex items-center justify-between mb-1">
-                                                <span className="text-green-400 text-xs font-semibold">UNSEALED MESSAGE</span>
-                                                <button
-                                                    onClick={() => {
-                                                        setUnsealedMessage('');
-                                                        setUnsealedFrom(undefined);
-                                                    }}
-                                                    className="text-green-400 hover:text-green-300 text-xs"
-                                                    title="Clear"
-                                                >
-                                                    ✕
-                                                </button>
-                                            </div>
-                                            {unsealedFrom && (
-                                                <div className="mb-1 pb-1 border-b border-green-600/20">
-                                                    <span className="text-green-500 text-xs">From: </span>
-                                                    <span className="font-mono text-green-300 text-xs">{unsealedFrom}</span>
-                                                </div>
-                                            )}
-                                            {!unsealedFrom && (
-                                                <div className="mb-1 pb-1 border-b border-green-600/20">
-                                                    <span className="text-gray-500 text-xs italic">Anonymous sender</span>
-                                                </div>
-                                            )}
-                                            <div className="font-mono text-green-200 text-xs break-all max-h-12 overflow-y-auto">
-                                                {unsealedMessage}
-                                            </div>
-                                        </div>
-                                    )}
                                 </div>
+                                <div className="flex flex-col gap-y-1">
+                                    <div>
+                                        <label className="text-gray-400 text-xs mb-1 block">Recipient Key (for sealing):</label>
+                                        <input type="text" value={targetKey} onChange={(e) => setTargetKey(e.target.value)} placeholder="Public key..." className="w-full bg-gray-700/50 border border-gray-600 rounded px-2 py-1 text-gray-200 text-xs focus:outline-none focus:border-blue-500" />
+                                    </div>
+                                    <div className="flex items-end">
+                                        <button onClick={() => setUseIdentityMode(!useIdentityMode)} className={`px-3 py-1 rounded text-xs transition-colors w-full ${useIdentityMode ? 'bg-green-600/20 text-green-300 border border-green-600/30' : 'bg-purple-600/20 text-purple-300 border border-purple-600/30'}`}>
+                                            {useIdentityMode ? '🔑 Identity' : '👻 Anonymous'}
+                                        </button>
+                                    </div>
+                                    <button onClick={actions.seal} disabled={!message.trim() || !targetKey.trim()} className="bg-orange-600/20 hover:bg-orange-600/30 text-orange-300 rounded-lg text-sm transition-colors border border-orange-600/30 disabled:opacity-50">
+                                        <span>🔒 Seal</span>
+                                    </button>
+                                </div>
+
+
                             </div>
                         </div>
+
+                        {/* Output Section */}
+                        <div className="bg-gray-800/30 rounded-lg p-4 border border-gray-700 space-y-4">
+                            <h3 className="text-yellow-300 font-semibold text-sm mb-3 flex items-center">
+                                <span className="bg-yellow-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs mr-2">2</span>
+                                OUTPUT & VERIFY
+                            </h3>
+
+                            <textarea value={output} onChange={(e) => setOutput(e.target.value)} placeholder="Signed/sealed output..." className="w-full bg-gray-700/50 border border-gray-600 rounded-lg px-3 py-2 text-gray-200 text-sm focus:outline-none focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500/20 resize-none font-mono" rows={4} />
+
+                            <div className="flex justify-center space-x-4">
+                                <button onClick={actions.verify} disabled={!output.trim() || isSealed(output)} className="bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 px-6 py-2 rounded-lg text-sm transition-colors border border-blue-600/30 disabled:opacity-50">🔍 Verify</button>
+                                <button onClick={actions.unseal} disabled={!output.trim() || !isSealed(output)} className="bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 px-6 py-2 rounded-lg text-sm transition-colors border border-purple-600/30 disabled:opacity-50">🔓 Unseal</button>
+                            </div>
+                        </div>
+
+                        {/* Results */}
+                        {result && (
+                            <div className="bg-gray-800/30 rounded-lg p-4 border border-gray-700">
+                                <div className="flex items-center justify-between mb-3">
+                                    <h3 className="text-green-300 font-semibold text-sm flex items-center">
+                                        <span className="bg-green-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs mr-2">3</span>
+                                        {result.type === 'verify' ? (result.valid ? '✅ VALID SIGNATURE' : '❌ INVALID SIGNATURE') : '🔓 UNSEALED MESSAGE'}
+                                    </h3>
+                                    <button onClick={() => setResult(null)} className="text-gray-400 hover:text-white text-xs">✕</button>
+                                </div>
+                                {result.from && <div className="text-xs mb-2"><span className="text-gray-400">{result.type === 'verify' ? 'Signer:' : 'From:'} </span><span className="font-mono text-green-300">{result.from}</span></div>}
+                                <div className="text-xs"><span className="text-gray-400">Message: </span><div className="mt-1 font-mono bg-gray-800/50 rounded p-2 break-all text-green-300">{result.message}</div></div>
+                            </div>
+                        )}
                     </div>
                 ) : keyExists() ? (
                     <div className="flex items-center justify-center py-8">
                         <div className="text-center space-y-3">
                             <div className="text-gray-400 text-sm">🔒 Wallet Locked</div>
-                            <button
-                                onClick={handleReset}
-                                className="bg-red-600/20 hover:bg-red-600/30 text-red-300 px-4 py-2 rounded text-xs transition-colors border border-red-600/30"
-                                title="Clear wallet data and start fresh"
-                            >
-                                🗑️ Reset Wallet
-                            </button>
+                            <button onClick={handleReset} className="bg-red-600/20 hover:bg-red-600/30 text-red-300 px-4 py-2 rounded text-xs transition-colors border border-red-600/30">🗑️ Reset Wallet</button>
                         </div>
                     </div>
                 ) : (
                     <div className="max-w-md mx-auto space-y-3">
                         <div className="bg-gray-800/30 rounded p-3 border border-gray-700">
                             <h3 className="text-gray-300 font-semibold text-xs mb-2">IMPORT PRIVATE KEY</h3>
-                            <div className="space-y-2">
-                                <input
-                                    type="file"
-                                    accept=".key,.txt"
-                                    onChange={(e) => {
-                                        const file = e.target.files?.[0] || null;
-                                        handleFileSelect(file);
-                                    }}
-                                    className="w-full bg-gray-700/50 border border-gray-600 rounded px-2 py-1 text-gray-200 text-xs focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 file:mr-2 file:py-0 file:px-2 file:rounded file:border-0 file:text-xs file:font-medium file:bg-blue-600/20 file:text-blue-300 hover:file:bg-blue-600/30"
-                                />
-                                <div className="text-gray-500 text-xs text-center">
-                                    Select a pockit.key file to import
-                                </div>
-                            </div>
+                            <input type="file" accept=".key,.txt" onChange={(e) => handleFileSelect(e.target.files?.[0] || null)} className="w-full bg-gray-700/50 border border-gray-600 rounded px-2 py-1 text-gray-200 text-xs focus:outline-none focus:border-blue-500 file:mr-2 file:py-0 file:px-2 file:rounded file:border-0 file:text-xs file:font-medium file:bg-blue-600/20 file:text-blue-300 hover:file:bg-blue-600/30" />
+                            <div className="text-gray-500 text-xs text-center mt-2">Select a pockit.key file to import</div>
                         </div>
                     </div>
                 )}
 
-                {/* Error Display */}
                 {walletState.error && (
                     <div className="mt-3 bg-red-900/20 border border-red-600/30 rounded px-3 py-2">
                         <div className="flex items-center space-x-2">

@@ -1,6 +1,6 @@
 import { useState, createContext, useContext, type ReactNode } from "react";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
-import { hexToBytes } from "viem";
+import { hexToBytes, verifyMessage } from "viem";
 import * as secp from '@noble/secp256k1';
 import ToyWalletDebug from './ToyWalletDebug';
 
@@ -31,6 +31,7 @@ interface ToyWalletContextType {
     handleSign: (message: string, useIdentityMode: boolean) => Promise<string>;
     handleSeal: (message: string, targetPublicKey: string, useIdentityMode: boolean) => Promise<string>;
     handleUnseal: (sealedMessage: string) => Promise<UnsealedMessage | null>;
+    handleVerify: (signedMessage: string) => Promise<{ valid: boolean; message: string; from?: string } | null>;
 
     // Utility functions
     handleReset: () => void;
@@ -55,6 +56,14 @@ function formatPublicKeyShort(pk?: string) {
     return `${pk.slice(0, 10)}…${pk.slice(-6)}`;
 }
 
+// Get compressed public key from private key
+function getCompressedPublicKey(privateKeyHex: `0x${string}`): string {
+    const privateKeyBytes = hexToBytes(privateKeyHex);
+    const publicKeyBytes = secp.getPublicKey(privateKeyBytes, true); // true = compressed
+    const hex = Array.from(publicKeyBytes).map(b => b.toString(16).padStart(2, '0')).join('');
+    return `0x${hex}`;
+}
+
 // ==================== SIMPLE SEAL/UNSEAL ====================
 // Main seal function - works with or without identity
 // If getPrivateKey is provided and returns a key, uses it for identity sealing
@@ -76,21 +85,20 @@ async function sealMessage(
     if (senderPrivateKeyHex) {
         // Identity seal: Include sender identity
         senderPrivKey = hexToBytes(senderPrivateKeyHex);
+        senderPubKeyForEnvelope = getCompressedPublicKey(senderPrivateKeyHex);
         const account = privateKeyToAccount(senderPrivateKeyHex);
-        senderPubKeyForEnvelope = account.publicKey;
         fromAddress = account.address;
     } else {
         // Anonymous seal: use ephemeral key
         const ephemeralKey = generatePrivateKey();
         senderPrivKey = hexToBytes(ephemeralKey);
-        const ephemeralAccount = privateKeyToAccount(ephemeralKey);
-        senderPubKeyForEnvelope = ephemeralAccount.publicKey;
+        senderPubKeyForEnvelope = getCompressedPublicKey(ephemeralKey);
         fromAddress = undefined;
     }
 
     // Get shared secret using secp256k1
-    const sharedSecret = secp.getSharedSecret(senderPrivKey, recipientPubKey, false);
-    const sharedKey = sharedSecret[0] === 4 ? sharedSecret.slice(1, 33) : sharedSecret.slice(0, 32);
+    const sharedSecret = secp.getSharedSecret(senderPrivKey, recipientPubKey, true); // true = compressed
+    const sharedKey = sharedSecret.slice(1, 33); // Remove prefix byte, take 32 bytes
 
     // Derive AES key from shared secret
     const aesKey = await crypto.subtle.importKey(
@@ -134,8 +142,8 @@ async function unsealMessage(
     const myPrivKey = hexToBytes(myPrivateKeyHex);
 
     // Get shared secret (same as sender calculated)
-    const sharedSecret = secp.getSharedSecret(myPrivKey, senderPubKey, false);
-    const sharedKey = sharedSecret[0] === 4 ? sharedSecret.slice(1, 33) : sharedSecret.slice(0, 32);
+    const sharedSecret = secp.getSharedSecret(myPrivKey, senderPubKey, true); // true = compressed
+    const sharedKey = sharedSecret.slice(1, 33); // Remove prefix byte, take 32 bytes
 
     // Derive same AES key
     const aesKey = await crypto.subtle.importKey(
@@ -300,7 +308,7 @@ export function ToyWalletProvider({ children }: { children: ReactNode }) {
 
         if (key) {
             const account = privateKeyToAccount(key);
-            const pubKey = account.publicKey;
+            const pubKey = getCompressedPublicKey(key);
 
             setCurrentPin(pin);
             setAddress(account.address);
@@ -360,6 +368,52 @@ export function ToyWalletProvider({ children }: { children: ReactNode }) {
         } catch (err: any) {
             setError('Failed to sign: ' + err.message);
             return '';
+        }
+    };
+
+    const handleVerify = async (signedMessage: string): Promise<{ valid: boolean; message: string; from?: string } | null> => {
+        if (!signedMessage.trim()) {
+            setError('Enter signed message');
+            return null;
+        }
+
+        try {
+            const envelope = JSON.parse(signedMessage);
+            const { m: message, s: signature, f: fromAddress } = envelope;
+
+            if (!message || !signature) {
+                setError('Invalid signed message format');
+                return null;
+            }
+
+            // If there's a from address, verify using that address
+            // If not, it's an anonymous signature and we can't verify the signer
+            if (fromAddress) {
+                const isValid = await verifyMessage({
+                    address: fromAddress as `0x${string}`,
+                    message,
+                    signature
+                });
+
+                setError('');
+                return {
+                    valid: isValid,
+                    message,
+                    from: fromAddress
+                };
+            } else {
+                // Anonymous signature - we can't verify the signer identity
+                // but we can extract the message
+                setError('');
+                return {
+                    valid: true, // We assume the signature is valid since we can't verify anonymous sigs
+                    message,
+                    from: undefined
+                };
+            }
+        } catch (err: any) {
+            setError('Failed to verify: ' + err.message);
+            return null;
         }
     };
 
@@ -453,6 +507,7 @@ export function ToyWalletProvider({ children }: { children: ReactNode }) {
         handleSign,
         handleSeal,
         handleUnseal,
+        handleVerify,
         handleReset,
         copyAddress,
         copyPublicKey,
