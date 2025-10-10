@@ -7,33 +7,21 @@ export default function ProfilePage({ myState, setMyState, sendPlayerState }: {
     setMyState: React.Dispatch<React.SetStateAction<{ position: [number, number, number], profile: { [key: string]: any } }>>,
     sendPlayerState: (state: { position: [number, number, number], profile: { [key: string]: any } }) => void
 }) {
-
-    const { saveBlob, isLoaded } = useSaveBlob();
-
-    // Only memoize this to prevent the Profile component from re-rendering unnecessarily
     const updateProfile = useCallback((key: string, value: any) => {
-        const newProfile = { ...myState.profile, [key]: value }
-
         setMyState(state => {
-            const newState = { ...state, profile: newProfile }
-            sendPlayerState(newState)
-            return newState
+            const newProfile = { ...state.profile, [key]: value };
+            const newState = { ...state, profile: newProfile };
+            sendPlayerState(newState);
+            return newState;
         });
+    }, [setMyState, sendPlayerState]);
 
-        if (isLoaded) {
-            saveBlob('profile', new Blob([JSON.stringify(newProfile)], { type: 'application/json' }));
-        }
-    }, [myState.profile, setMyState, sendPlayerState, isLoaded, saveBlob])
-
-    // Simplify JSON input handler
     const handleJsonInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         try {
             const obj = JSON.parse(e.target.value);
-            setMyState(state => {
-                const newState = { ...state, profile: { ...state.profile, ...obj } }
-                sendPlayerState(newState)
-                return newState
-            })
+            const newProfile = { ...myState.profile, ...obj };
+            setMyState(state => ({ ...state, profile: newProfile }));
+            sendPlayerState({ ...myState, profile: newProfile });
         } catch {
             // Invalid JSON, ignore
         }
@@ -42,7 +30,6 @@ export default function ProfilePage({ myState, setMyState, sendPlayerState }: {
     return (
         <div className="h-full w-full overflow-y-auto noscrollbar p-2">
             <Profile updateProfile={updateProfile} state={myState} />
-
             <input
                 value={JSON.stringify(myState.profile)}
                 onChange={handleJsonInputChange}
@@ -51,13 +38,12 @@ export default function ProfilePage({ myState, setMyState, sendPlayerState }: {
             <div className="text-xs" onClick={() => {
                 if ('serviceWorker' in navigator) {
                     navigator.serviceWorker.ready.then((registration) => {
-                        registration.update();  // Triggers fetch for new SW
+                        registration.update();
                     });
                 }
             }}>
                 build version: cool-rest
             </div>
-
         </div>
     );
 }

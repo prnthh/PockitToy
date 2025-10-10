@@ -46,7 +46,24 @@ export default function MP({ appId = 'pockit.world', roomId, children }: { appId
     return () => { console.error = origConsoleError }
   }, [])
 
-  const { getBlob, isLoaded, addToAddressBook } = useSaveBlob();
+  const { isLoaded, useData } = useSaveBlob();
+  const [, setAddressBook] = useData('addressBook', {} as Record<string, { name: string, addedAt: string }>);
+
+  // Load profile using the new reactive data API
+  const [profile] = useData('profile', {});
+
+  useEffect(() => {
+    if (Object.keys(profile).length > 0) {
+      setMyState(state => ({
+        ...state,
+        profile: {
+          ...state.profile,
+          ...profile
+        }
+      }));
+    }
+  }, [profile]); // Only depend on profile data
+
   const [connectionKey, setConnectionKey] = useState(Math.random())
   const room = useMemo(() => joinRoom({ appId, password: undefined }, roomId), [appId, roomId, connectionKey])
 
@@ -143,13 +160,18 @@ export default function MP({ appId = 'pockit.world', roomId, children }: { appId
   useEffect(() => {
     if (!isLoaded) return;
 
-    // Only update address book for new wallet addresses
     Object.values(peerStates).forEach((peerState) => {
-      if (peerState.profile?.walletAddress) {
-        addToAddressBook(peerState.profile.walletAddress, peerState.profile.name);
+      if (peerState.profile?.walletAddress && peerState.profile?.name) {
+        setAddressBook(prev => ({
+          ...prev,
+          [peerState.profile.walletAddress]: {
+            name: peerState.profile.name,
+            addedAt: new Date().toISOString()
+          }
+        }));
       }
     });
-  }, [isLoaded, Object.keys(peerStates).length, addToAddressBook]); // Only run when peer count changes
+  }, [isLoaded, peerStates, setAddressBook]);
 
   const handleChatMessage = useCallback((data: DataPayload, peer: string) => {
     if (typeof data === 'string') {
@@ -186,31 +208,6 @@ export default function MP({ appId = 'pockit.world', roomId, children }: { appId
     getPeerStates(handlePeerState)
     getChat(handleChatMessage)
   }, [room, getPeerStates, getChat, handlePeerJoin, handlePeerLeave, handlePeerState, handleChatMessage])
-
-  useEffect(() => {
-    if (!isLoaded) return;
-
-    getBlob('profile').then(async (blob) => {
-      if (blob) {
-        try {
-          const text = await blob.text();
-          const decodedProfile = JSON.parse(text);
-
-          console.log('Loaded profile:', decodedProfile);
-
-          setMyState(state => ({
-            ...state,
-            profile: {
-              ...state.profile,
-              ...decodedProfile
-            }
-          }));
-        } catch (error) {
-          console.error('Error decoding profile blob:', error);
-        }
-      }
-    });
-  }, [isLoaded]);
 
   // Listen for local position updates from parent
   useEffect(() => {

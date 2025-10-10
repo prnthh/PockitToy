@@ -1,117 +1,73 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import type { ReactNode } from 'react';
 
-const SaveBlobContext = createContext<{
-    saveBlob: (key: string, blob: Blob) => Promise<void>,
-    getBlob: (key: string) => Promise<Blob | null>,
-    isLoaded: boolean,
-    addToAddressBook: (walletAddress: string, name?: string) => Promise<boolean>,
-    getAddressBook: () => Promise<Record<string, { name: string, addedAt: string }>>,
-}>({
-    saveBlob: async () => { },
-    getBlob: async () => null,
+interface SaveBlobContextType {
+    useData: <T>(key: string, defaultValue: T) => readonly [T, (data: T | ((prev: T) => T)) => void];
+    isLoaded: boolean;
+}
+
+const SaveBlobContext = createContext<SaveBlobContextType>({
+    useData: () => [null as any, () => { }],
     isLoaded: false,
-    addToAddressBook: async () => false,
-    getAddressBook: async () => ({}),
 });
 
 export const useSaveBlob = () => useContext(SaveBlobContext);
 
-export default function SaveBlobProvider({ children }: { children: React.ReactNode }) {
-    const [blobs, setBlobs] = useState<Map<string, Blob>>(new Map());
+export default function SaveBlobProvider({ children }: { children: ReactNode }) {
+    const [data, setData] = useState<Map<string, any>>(new Map());
     const [isLoaded, setIsLoaded] = useState(false);
 
-    const saveBlob = useCallback(async (key: string, blob: Blob) => {
-        setBlobs(prev => new Map(prev).set(key, blob));
+    // Simple checksum
+    const checksum = useCallback((str: string) => {
+        let hash = 0;
+        for (let i = 0; i < str.length; i++) {
+            hash = ((hash << 5) - hash + str.charCodeAt(i)) & 0xffffffff;
+        }
+        return hash.toString(36);
     }, []);
 
-    const getBlob = useCallback(async (key: string): Promise<Blob | null> => {
-        return isLoaded ? blobs.get(key) || null : null;
-    }, [isLoaded, blobs]);
-
-    const getAddressBook = useCallback(async (): Promise<Record<string, { name: string, addedAt: string }>> => {
-        if (!isLoaded) return {};
-
-        try {
-            const blob = await getBlob('addressbook');
-            if (!blob) return {};
-
-            const text = await blob.text();
-            const data = JSON.parse(text);
-            return (data && typeof data === 'object') ? data : {};
-        } catch {
-            return {};
-        }
-    }, [isLoaded, getBlob]);
-
-    const addToAddressBook = useCallback(async (walletAddress: string, name?: string): Promise<boolean> => {
-        if (!isLoaded || !walletAddress) return false;
-
-        try {
-            const addressBook = await getAddressBook();
-            addressBook[walletAddress] = {
-                name: name || addressBook[walletAddress]?.name || walletAddress.slice(0, 8),
-                addedAt: addressBook[walletAddress]?.addedAt || new Date().toISOString(),
-            };
-
-            await saveBlob('addressbook', new Blob([JSON.stringify(addressBook)], { type: 'application/json' }));
-            return true;
-        } catch {
-            return false;
-        }
-    }, [isLoaded, getAddressBook, saveBlob]);
-
-    // Load from localStorage on mount
+    // Load on mount
     useEffect(() => {
-        try {
-            const stored = localStorage.getItem('blobs');
-            if (stored) {
-                const data: Record<string, string> = JSON.parse(stored);
-                const map = new Map<string, Blob>();
-
-                Object.entries(data).forEach(([key, base64]) => {
-                    try {
-                        const binary = atob(base64);
-                        map.set(key, new Blob([binary]));
-                    } catch {
-                        console.warn(`Failed to decode blob: ${key}`);
-                    }
-                });
-
-                setBlobs(map);
+        const stored = localStorage.getItem('reactive-data');
+        if (stored) {
+            try {
+                const payload = JSON.parse(stored);
+                if (payload.data && payload.checksum === checksum(payload.data)) {
+                    setData(new Map(Object.entries(JSON.parse(payload.data))));
+                } else {
+                    localStorage.removeItem('reactive-data');
+                }
+            } catch {
+                localStorage.removeItem('reactive-data');
             }
-        } catch {
-            console.warn('Failed to load blobs from localStorage');
         }
         setIsLoaded(true);
-    }, []);
+    }, [checksum]);
 
-    // Save to localStorage when blobs change
+    // Save on change
     useEffect(() => {
         if (!isLoaded) return;
+        const dataStr = JSON.stringify(Object.fromEntries(data));
+        const payload = { data: dataStr, checksum: checksum(dataStr) };
+        localStorage.setItem('reactive-data', JSON.stringify(payload));
+    }, [data, isLoaded, checksum]);
 
-        const saveToStorage = async () => {
-            const data: Record<string, string> = {};
-
-            for (const [key, blob] of blobs) {
-                try {
-                    const buffer = await blob.arrayBuffer();
-                    const binary = String.fromCharCode(...new Uint8Array(buffer));
-                    data[key] = btoa(binary);
-                } catch {
-                    console.warn(`Failed to serialize blob: ${key}`);
-                }
-            }
-
-            localStorage.setItem('blobs', JSON.stringify(data));
-        };
-
-        saveToStorage();
-    }, [blobs, isLoaded]);
+    const useData = useCallback(function <T>(key: string, defaultValue: T) {
+        const value = data.get(key) ?? defaultValue;
+        const setValue = useCallback((newValue: T | ((prev: T) => T)) => {
+            setData(prev => {
+                const current = prev.get(key) ?? defaultValue;
+                const final = typeof newValue === 'function' ? (newValue as Function)(current) : newValue;
+                return new Map(prev).set(key, final);
+            });
+        }, [key]);
+        return [value, setValue] as const;
+    }, [data]);
 
     return (
-        <SaveBlobContext.Provider value={{ saveBlob, getBlob, isLoaded, addToAddressBook, getAddressBook }}>
+        <SaveBlobContext.Provider value={{ useData, isLoaded }}>
             {children}
         </SaveBlobContext.Provider>
     );

@@ -1,4 +1,4 @@
-import { useContext, useEffect, useState, useMemo } from 'react'
+import { useContext, useState, useMemo } from 'react'
 import { MPContext } from './MP';
 import { useSaveBlob } from '@/shared/SaveBlobProvider';
 
@@ -16,23 +16,23 @@ type Contact = {
 
 export default function PeerList({ sendChat }: { sendChat: (msg: string, peer?: string) => void }) {
     const { peerStates, room } = useContext(MPContext);
-    const { getAddressBook, isLoaded, saveBlob } = useSaveBlob();
-    const [addressBook, setAddressBook] = useState<Record<string, { name: string, addedAt: string }>>({});
+    const { useData, isLoaded } = useSaveBlob();
+    const [addressBook, setAddressBook] = useData('addressBook', {} as Record<string, { name: string, addedAt: string }>);
     const [selected, setSelected] = useState<string | null>(null);
     const [dmTarget, setDmTarget] = useState<string | null>(null);
     const [dmInput, setDmInput] = useState('');
 
-    useEffect(() => {
-        if (!isLoaded) return;
-        getAddressBook().then(setAddressBook).catch(console.error);
-    }, [getAddressBook, isLoaded]);
-
     const deleteContact = async (address: string) => {
-        const updated = { ...addressBook };
-        delete updated[address];
-        await saveBlob('addressbook', new Blob([JSON.stringify(updated)], { type: 'application/json' }));
-        setAddressBook(updated);
-        setSelected(null);
+        try {
+            setAddressBook(prev => {
+                const updated = { ...prev };
+                delete updated[address];
+                return updated;
+            });
+            setSelected(null);
+        } catch (error) {
+            console.error('Failed to delete contact:', error);
+        }
     };
 
     const sendDM = () => {
@@ -116,7 +116,7 @@ export default function PeerList({ sendChat }: { sendChat: (msg: string, peer?: 
                     onPointerLeave={() => selected === contact.id && setSelected(null)}>
 
                     <div className={`flex justify-between items-center rounded p-1 px-2 hover:bg-black/20 transition-all ${contact.isFriend && contact.isOnline ? 'bg-green-500/25' :
-                            contact.isOnline ? 'bg-blue-500/15' : 'bg-gray-500/10'
+                        contact.isOnline ? 'bg-blue-500/15' : 'bg-gray-500/10'
                         }`}>
                         <span className="font-mono">{contact.name}</span>
                         <div className="flex items-center gap-1">
