@@ -31,74 +31,64 @@ export const MPContext = createContext<{
 
 export default function MP({ appId = 'pockit.world', roomId, children }: { appId?: string, roomId: string, children?: React.ReactNode }) {
   // Suppress 'User-Initiated Abort' RTC errors in the console
-  const origConsoleError = console.error
-  console.error = function (...args) {
-    if (
-      args[0]?.error?.name === 'OperationError' &&
-      args[0]?.error?.message?.includes('User-Initiated Abort')
-    ) {
-      // Suppress this error
-      return
+  useEffect(() => {
+    const origConsoleError = console.error
+    console.error = function (...args) {
+      if (
+        args[0]?.error?.name === 'OperationError' &&
+        args[0]?.error?.message?.includes('User-Initiated Abort')
+      ) {
+        // Suppress this error
+        return
+      }
+      origConsoleError.apply(console, args)
     }
-    origConsoleError.apply(console, args)
-  }
+    return () => { console.error = origConsoleError }
+  }, [])
 
+  const { getBlob, isLoaded, addToAddressBook } = useSaveBlob();
   const [connectionKey, setConnectionKey] = useState(Math.random())
   const room = useMemo(() => joinRoom({ appId, password: undefined }, roomId), [appId, roomId, connectionKey])
 
   useEffect(() => {
-    let heartBeater: number | null = null
-    const heartBeat = () => {
+    let interval: number | null = null;
+    
+    const heartbeat = () => {
       try {
-        room.getPeers()
-        // console.log("heartbeat!", room.getPeers())
+        room.getPeers();
       } catch (error) {
-        console.error('Error fetching peers:', error)
-        setConnectionKey(Math.random()) // Reset connection
+        console.error('Connection error:', error);
+        setConnectionKey(Math.random());
       }
-    }
+    };
 
-    const startHeartBeat = () => {
-      if (heartBeater) clearInterval(heartBeater)
-      heartBeat()
-      heartBeater = setInterval(heartBeat, 10000)
-    }
+    const start = () => {
+      if (interval) clearInterval(interval);
+      heartbeat();
+      interval = setInterval(heartbeat, 10000);
+    };
 
-    const stopHeartBeat = () => {
-      if (heartBeater) {
-        clearInterval(heartBeater)
-        heartBeater = null
+    const stop = () => {
+      if (interval) {
+        clearInterval(interval);
+        interval = null;
       }
-    }
+    };
 
-    const handleVisibilityChange = () => {
-      if (document.hidden) {
-        stopHeartBeat()
-      } else {
-        startHeartBeat()
-      }
-    }
+    const handleVisibility = () => document.hidden ? stop() : start();
 
-    const handleFocus = () => {
-      startHeartBeat()
-    }
-
-    const handleBlur = () => {
-      stopHeartBeat()
-    }
-
-    startHeartBeat()
-    document.addEventListener('visibilitychange', handleVisibilityChange)
-    window.addEventListener('focus', handleFocus)
-    window.addEventListener('blur', handleBlur)
+    start();
+    document.addEventListener('visibilitychange', handleVisibility);
+    window.addEventListener('focus', start);
+    window.addEventListener('blur', stop);
 
     return () => {
-      stopHeartBeat()
-      document.removeEventListener('visibilitychange', handleVisibilityChange)
-      window.removeEventListener('focus', handleFocus)
-      window.removeEventListener('blur', handleBlur)
-    }
-  }, [room])
+      stop();
+      document.removeEventListener('visibilitychange', handleVisibility);
+      window.removeEventListener('focus', start);
+      window.removeEventListener('blur', stop);
+    };
+  }, [room]);
 
   // Peer states
   const [sendPlayerState, getPeerStates] = room.makeAction('peerState')
@@ -117,52 +107,49 @@ export default function MP({ appId = 'pockit.world', roomId, children }: { appId
   const { playSound } = useAudio();
 
   const handlePeerJoin = (peer: string) => {
-    console.log('Peer joined:', peer)
     sendPlayerState(myStateRef.current, peer)
   }
 
   const handlePeerLeave = (peer: string) => {
-    let peerName = peer.slice(0, 8);
     setPeerStates(states => {
-      const peerState = states[peer];
-      if (peerState && peerState.profile?.name)
-        peerName = peerState.profile.name;
       const newStates = { ...states }
       delete newStates[peer]
       return newStates
     })
-
-    setConsoleMessages(msgs => [...msgs, {
-      peer: 'system',
-      message: <div className='inline'><span className="font-bold">
-        {peerName}</span> left</div>
-    }])
-
   }
 
   const handlePeerState = (state: any, peer: string) => {
-    console.log('Received state from', peer, state)
-    setConsoleMessages(msgs => [...msgs, { peer: 'system', message: <div className='inline'><span className="font-bold">{state.profile.name || peer.slice(0, 8)}</span> connected</div> }])
+    if (state && typeof state.profile === 'object') {
 
-    if (
-      state &&
-      // Array.isArray(state.position) &&
-      // state.position.length === 3 &&
-      // state.position.every((n: any) => typeof n === 'number') &&
-      typeof state.profile === 'object'
-    ) {
+      // todo if a peer state has a wallet address and is signed, verify it or drop it
+      // if not signed, allow only name and avatar updates
+      // if signed and verified, allow full profile updates
+
+      console.log('Peer state updated:', peer, state);
       setPeerStates(states => {
-        const prev = states[peer] || {};
+        const peerState = {
+          ...states[peer], ...state,
+        };
+
         return {
           ...states,
-          [peer]: {
-            ...prev,
-            ...state,
-          }
+          [peer]: peerState
         }
       })
     }
   }
+
+  // Separate effect to handle address book updates when isLoaded changes
+  useEffect(() => {
+    if (!isLoaded) return;
+
+    // Update address book for all peers with wallet addresses
+    Object.entries(peerStates).forEach(([, peerState]) => {
+      if (peerState.profile?.walletAddress) {
+        addToAddressBook(peerState.profile.walletAddress, peerState.profile.name);
+      }
+    });
+  }, [isLoaded, peerStates, addToAddressBook]);
 
   const handleChatMessage = (data: DataPayload, peer: string) => {
     if (typeof data === 'string') {
@@ -198,11 +185,30 @@ export default function MP({ appId = 'pockit.world', roomId, children }: { appId
     room.onPeerLeave(handlePeerLeave)
     getPeerStates(handlePeerState)
     getChat(handleChatMessage)
-
-    // setConsoleMessages([
-    //   { peer: 'system', message: <div>Connected to pockit.world: {roomId} ❣️</div> }
-    // ])
   }, [room, sendPlayerState, getPeerStates])
+
+  useEffect(() => {
+    getBlob('profile').then(async (blob) => {
+      if (blob) {
+        try {
+          const text = await blob.text();
+          const decodedProfile = JSON.parse(text);
+
+          console.log('Loaded profile:', decodedProfile);
+
+          setMyState(state => ({
+            ...state,
+            profile: {
+              ...state.profile,
+              ...decodedProfile
+            }
+          }));
+        } catch (error) {
+          console.error('Error decoding profile blob:', error);
+        }
+      }
+    });
+  }, [getBlob, setMyState]);
 
   // Listen for local position updates from parent
   useEffect(() => {
@@ -223,29 +229,6 @@ export default function MP({ appId = 'pockit.world', roomId, children }: { appId
     window.addEventListener('mp-trigger', handler as EventListener)
     return () => window.removeEventListener('mp-trigger', handler as EventListener)
   }, [])
-
-  const { getBlob } = useSaveBlob();
-
-  useEffect(() => {
-    getBlob('profile').then(async (blob) => {
-      if (blob) {
-        try {
-          const text = await blob.text();
-          const decodedProfile = JSON.parse(text);
-
-          setMyState(state => ({
-            ...state,
-            profile: {
-              ...state.profile,
-              ...decodedProfile
-            }
-          }));
-        } catch (error) {
-          console.error('Error decoding profile blob:', error);
-        }
-      }
-    });
-  }, [getBlob, setMyState]);
 
   const pages = useMemo(() => ({
     profile: <ProfilePage

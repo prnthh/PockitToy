@@ -1,95 +1,193 @@
-import { useContext, useState } from 'react'
+import { useContext, useEffect, useState, useMemo } from 'react'
 import { MPContext } from './MP';
+import { useSaveBlob } from '@/shared/SaveBlobProvider';
 
 const buttonStyle = `bg-black/20 text-[#8cf] rounded px-1.5 py-1.5 text-left cursor-pointer`
 
-export default function PeerList({ sendChat }: {
-    sendChat: (msg: string, peer?: string) => void
-}) {
+type Contact = {
+    id: string
+    name: string
+    isOnline: boolean
+    isFriend: boolean
+    peerId?: string
+    walletAddress?: string
+    profile?: any
+}
+
+export default function PeerList({ sendChat }: { sendChat: (msg: string, peer?: string) => void }) {
     const { peerStates, room } = useContext(MPContext);
-    const [peerOptions, setPeerOptions] = useState<string | null>(null)
-    const [showDM, setShowDM] = useState<string | null>(null)
-    const [dmInput, setDmInput] = useState('')
+    const { getAddressBook, isLoaded, saveBlob } = useSaveBlob();
+    const [addressBook, setAddressBook] = useState<Record<string, { name: string, addedAt: string }>>({});
+    const [selected, setSelected] = useState<string | null>(null);
+    const [dmTarget, setDmTarget] = useState<string | null>(null);
+    const [dmInput, setDmInput] = useState('');
+
+    useEffect(() => {
+        if (!isLoaded) return;
+        getAddressBook().then(setAddressBook).catch(console.error);
+    }, [getAddressBook, isLoaded]);
+
+    const deleteContact = async (address: string) => {
+        const updated = { ...addressBook };
+        delete updated[address];
+        await saveBlob('addressbook', new Blob([JSON.stringify(updated)], { type: 'application/json' }));
+        setAddressBook(updated);
+        setSelected(null);
+    };
+
+    const sendDM = () => {
+        if (dmInput.trim() && dmTarget) {
+            sendChat(dmInput, dmTarget);
+            setDmTarget(null);
+            setDmInput('');
+        }
+    };
+
+    // Build unified contact list
+    const contacts = useMemo(() => {
+        const result: Contact[] = [];
+        const addressToPeerId = new Map<string, string>();
+        
+        // Map wallet addresses to peer IDs
+        Object.entries(peerStates).forEach(([peerId, state]) => {
+            if (state.profile?.walletAddress) {
+                addressToPeerId.set(state.profile.walletAddress, peerId);
+            }
+        });
+
+        // Online friends first
+        Object.entries(addressBook).forEach(([address, data]) => {
+            const peerId = addressToPeerId.get(address);
+            if (peerId) {
+                result.push({
+                    id: address,
+                    name: data.name,
+                    isOnline: true,
+                    isFriend: true,
+                    peerId,
+                    walletAddress: address,
+                    profile: peerStates[peerId]?.profile
+                });
+            }
+        });
+
+        // Online non-friends
+        Object.entries(peerStates).forEach(([peerId, state]) => {
+            const address = state.profile?.walletAddress;
+            if (!address || !addressBook[address]) {
+                result.push({
+                    id: peerId,
+                    name: state?.profile?.name || peerId.slice(0, 8),
+                    isOnline: true,
+                    isFriend: false,
+                    peerId,
+                    walletAddress: address,
+                    profile: state.profile
+                });
+            }
+        });
+
+        // Offline friends last
+        Object.entries(addressBook).forEach(([address, data]) => {
+            if (!addressToPeerId.has(address)) {
+                result.push({
+                    id: address,
+                    name: data.name,
+                    isOnline: false,
+                    isFriend: true,
+                    walletAddress: address
+                });
+            }
+        });
+
+        return result;
+    }, [peerStates, addressBook]);
+
+    const onlineCount = contacts.filter(c => c.isOnline).length;
+    const friendsCount = contacts.filter(c => c.isFriend).length;
+
     return (
         <div className="w-full p-2 h-full overflow-y-auto noscrollbar">
-            <div className="font-bold mb-1">{Object.keys(peerStates).length} Peers</div>
-            <div className="w-full m-0 p-0">
-                {Object.entries(peerStates).map(([peerId, state]) => (
-                    <div key={peerId} className="flex flex-col text-[12px] mb-0.5 relative cursor-pointer"
-                        onClick={e => {
-                            e.stopPropagation();
-                            setPeerOptions(peerOptions === peerId ? null : peerId);
-                        }}
-                        onPointerLeave={() => peerOptions === peerId && setPeerOptions(null)}
-                    >
-                        <div className='flex justify-between items-center bg-black/15 rounded p-1 px-2 hover:bg-black/20 hover:scale-101 transition-all'
-
-                        >
-                            {state?.profile?.name || peerId.slice(0, 8)}
-                            {/* Example: show position and profile */}
-                            {/* <span className="ml-1 text-[#aaa]">({state.position.join(', ')})</span> */}
-                        </div>
-                        {peerOptions === peerId && (
-                            <div className=" bg-black/25 border rounded mt-1 min-w-[80px] flex flex-col"
-                            >
-                                <div className='flex gap-x-1 p-1'>
-
-                                    <button
-                                        className={buttonStyle}
-                                        onClick={() => {
-                                            setShowDM(peerId);
-                                            setPeerOptions(null);
-                                        }}
-                                    >DM</button>
-                                    <button
-                                        className={buttonStyle}
-                                        onClick={() => {
-                                            try {
-                                                const peerConn = room.getPeers()[peerId];
-                                                if (peerConn) peerConn.close();
-                                            } catch (err) { }
-                                            setPeerOptions(null);
-                                        }}
-                                    >Block</button>
-                                </div>
-                                <div>
-                                    {state.profile && <textarea className="text-white p-1" value={JSON.stringify(state.profile)} />}
-
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                ))}
-                {showDM && (
-                    <div className="fixed left-0 top-0 w-full h-full bg-black/50 z-[2000] flex items-center justify-center rounded-4xl" onClick={() => setShowDM(null)}>
-                        <div className="bg-[#222] p-5 rounded-xl min-w-[300px]" onClick={e => e.stopPropagation()}>
-                            <div className="mb-2.5 text-[#8cf]">DM to {showDM.slice(0, 8)}</div>
-                            <input
-                                type="text"
-                                autoFocus
-                                className="w-full p-2 rounded border-none bg-[#333] text-white mb-2.5"
-                                value={dmInput}
-                                onChange={e => setDmInput(e.target.value)}
-                                onKeyDown={e => {
-                                    if (e.key === 'Enter' && dmInput.trim()) {
-                                        sendChat(dmInput, showDM);
-                                        setShowDM(null);
-                                        setDmInput('');
-                                    }
-                                }}
-                                placeholder="Type a DM..."
-                            />
-                            <button className="bg-[#8cf] text-[#222] border-none rounded px-3 py-1 cursor-pointer" onClick={() => {
-                                if (dmInput.trim()) {
-                                    sendChat(dmInput, showDM);
-                                    setShowDM(null);
-                                    setDmInput('');
+            <div className="font-bold mb-1">Contacts ({onlineCount} online, {friendsCount} friends)</div>
+            
+            {contacts.map(contact => (
+                <div key={contact.id} className="text-[12px] mb-0.5 cursor-pointer"
+                    onClick={() => setSelected(selected === contact.id ? null : contact.id)}
+                    onPointerLeave={() => selected === contact.id && setSelected(null)}>
+                    
+                    <div className={`flex justify-between items-center rounded p-1 px-2 hover:bg-black/20 transition-all ${
+                        contact.isFriend && contact.isOnline ? 'bg-green-500/25' :
+                        contact.isOnline ? 'bg-blue-500/15' : 'bg-gray-500/10'
+                    }`}>
+                        <span className="font-mono">{contact.name}</span>
+                        <div className="flex items-center gap-1">
+                            {contact.isOnline && <div className="w-2 h-2 bg-green-500 rounded-full" />}
+                            <span className="text-black text-[10px]">
+                                {contact.walletAddress ? 
+                                    `${contact.walletAddress.slice(0, 6)}...${contact.walletAddress.slice(-4)}` :
+                                    contact.peerId?.slice(0, 8)
                                 }
-                            }}>Send</button>
+                            </span>
                         </div>
                     </div>
-                )}
-            </div>
+
+                    {selected === contact.id && (
+                        <div className="bg-black/25 border rounded mt-1 p-1 flex gap-1">
+                            {contact.isOnline && (
+                                <button className={buttonStyle} onClick={(e) => {
+                                    e.stopPropagation();
+                                    setDmTarget(contact.peerId || contact.id);
+                                }}>DM</button>
+                            )}
+                            {!contact.isFriend && contact.peerId && (
+                                <button className={buttonStyle} onClick={(e) => {
+                                    e.stopPropagation();
+                                    try {
+                                        const peers = room.getPeers();
+                                        if (contact.peerId && peers[contact.peerId]) {
+                                            peers[contact.peerId].close();
+                                        }
+                                    } catch (err) { }
+                                }}>Block</button>
+                            )}
+                            {contact.isFriend && (
+                                <button className={`${buttonStyle} bg-red-500/30 text-red-300`} 
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        deleteContact(contact.walletAddress!);
+                                    }}>Delete</button>
+                            )}
+                        </div>
+                    )}
+                </div>
+            ))}
+
+            {contacts.length === 0 && isLoaded && (
+                <div className="text-[11px] text-black italic text-center py-2">
+                    No contacts yet. Connect with peers to build your network!
+                </div>
+            )}
+
+            {dmTarget && (
+                <div className="fixed inset-0 bg-black/50 z-[2000] flex items-center justify-center" 
+                    onClick={() => setDmTarget(null)}>
+                    <div className="bg-[#222] p-5 rounded-xl min-w-[300px]" onClick={e => e.stopPropagation()}>
+                        <div className="mb-2.5 text-[#8cf]">DM to {contacts.find(c => c.peerId === dmTarget || c.id === dmTarget)?.name}</div>
+                        <input
+                            type="text"
+                            autoFocus
+                            className="w-full p-2 rounded bg-[#333] text-white mb-2.5"
+                            value={dmInput}
+                            onChange={e => setDmInput(e.target.value)}
+                            onKeyDown={e => e.key === 'Enter' && sendDM()}
+                            placeholder="Type a DM..."
+                        />
+                        <button className="bg-[#8cf] text-[#222] rounded px-3 py-1" onClick={sendDM}>
+                            Send
+                        </button>
+                    </div>
+                </div>
+            )}
         </div>
-    )
+    );
 }

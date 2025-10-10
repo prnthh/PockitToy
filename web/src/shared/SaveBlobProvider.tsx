@@ -5,23 +5,18 @@ import { createContext, useContext, useEffect, useState } from 'react';
 const SaveBlobContext = createContext<{
     saveBlob: (key: string, blob: Blob) => Promise<void>,
     getBlob: (key: string) => Promise<Blob | null>,
+    isLoaded: boolean,
+    addToAddressBook: (walletAddress: string, name?: string) => Promise<boolean>,
+    getAddressBook: () => Promise<Record<string, { name: string, addedAt: string }>>,
 }>({
     saveBlob: async () => { },
     getBlob: async () => null,
+    isLoaded: false,
+    addToAddressBook: async () => false,
+    getAddressBook: async () => ({}),
 });
 
 export const useSaveBlob = () => useContext(SaveBlobContext);
-
-// Simple hash function for data integrity
-const simpleHash = (str: string): string => {
-    let hash = 0;
-    for (let i = 0; i < str.length; i++) {
-        const char = str.charCodeAt(i);
-        hash = ((hash << 5) - hash) + char;
-        hash = hash & hash; // Convert to 32-bit integer
-    }
-    return hash.toString();
-};
 
 export default function SaveBlobProvider({ children }: { children: React.ReactNode }) {
     const [blobs, setBlobs] = useState<Map<string, Blob>>(new Map());
@@ -31,94 +26,92 @@ export default function SaveBlobProvider({ children }: { children: React.ReactNo
         setBlobs(prev => new Map(prev).set(key, blob));
     };
 
-    const getBlob = async (key: string) => {
-        // Wait for initial load to complete
-        if (!isLoaded) {
-            return new Promise<Blob | null>((resolve) => {
-                const checkLoaded = () => {
-                    if (isLoaded) {
-                        resolve(blobs.get(key) || null);
-                    } else {
-                        setTimeout(checkLoaded, 10);
-                    }
-                };
-                checkLoaded();
-            });
-        }
-        return blobs.get(key) || null;
+    const getBlob = async (key: string): Promise<Blob | null> => {
+        return isLoaded ? blobs.get(key) || null : null;
     };
 
-    // Load from storage
+    const getAddressBook = async (): Promise<Record<string, { name: string, addedAt: string }>> => {
+        if (!isLoaded) return {};
+        
+        try {
+            const blob = await getBlob('addressbook');
+            if (!blob) return {};
+            
+            const text = await blob.text();
+            const data = JSON.parse(text);
+            return (data && typeof data === 'object') ? data : {};
+        } catch {
+            return {};
+        }
+    };
+
+    const addToAddressBook = async (walletAddress: string, name?: string): Promise<boolean> => {
+        if (!isLoaded || !walletAddress) return false;
+        
+        try {
+            const addressBook = await getAddressBook();
+            addressBook[walletAddress] = {
+                name: name || addressBook[walletAddress]?.name || walletAddress.slice(0, 8),
+                addedAt: addressBook[walletAddress]?.addedAt || new Date().toISOString(),
+            };
+            
+            await saveBlob('addressbook', new Blob([JSON.stringify(addressBook)], { type: 'application/json' }));
+            return true;
+        } catch {
+            return false;
+        }
+    };
+
+    // Load from localStorage on mount
     useEffect(() => {
-        const storedBlobs = localStorage.getItem('blobs');
-        const storedHashes = localStorage.getItem('blobHashes');
-
-        if (storedBlobs && storedHashes) {
-            try {
-                const blobData: { [key: string]: string } = JSON.parse(storedBlobs);
-                const hashData: { [key: string]: string } = JSON.parse(storedHashes);
+        try {
+            const stored = localStorage.getItem('blobs');
+            if (stored) {
+                const data: Record<string, string> = JSON.parse(stored);
                 const map = new Map<string, Blob>();
-
-                for (const [key, base64Data] of Object.entries(blobData)) {
-                    // Verify hash integrity
-                    const expectedHash = simpleHash(base64Data);
-                    const storedHash = hashData[key];
-
-                    if (storedHash !== expectedHash) {
-                        console.warn(`Hash mismatch for key "${key}", skipping`);
-                        continue;
-                    }
-
+                
+                Object.entries(data).forEach(([key, base64]) => {
                     try {
-                        const decodedData = atob(base64Data);
-                        const blob = new Blob([decodedData]);
-                        map.set(key, blob);
-                    } catch (error) {
-                        console.warn(`Failed to decode data for key "${key}":`, error);
+                        const binary = atob(base64);
+                        map.set(key, new Blob([binary]));
+                    } catch {
+                        console.warn(`Failed to decode blob: ${key}`);
                     }
-                }
-
+                });
+                
                 setBlobs(map);
-                console.log('Loaded blobs from storage:', map.size, 'items');
-            } catch (error) {
-                console.error('Failed to parse stored blobs:', error);
             }
+        } catch {
+            console.warn('Failed to load blobs from localStorage');
         }
         setIsLoaded(true);
     }, []);
 
-    // Save to storage
+    // Save to localStorage when blobs change
     useEffect(() => {
         if (!isLoaded) return;
-
+        
         const saveToStorage = async () => {
-            const blobData: { [key: string]: string } = {};
-            const hashData: { [key: string]: string } = {};
-
+            const data: Record<string, string> = {};
+            
             for (const [key, blob] of blobs) {
                 try {
-                    const arrayBuffer = await blob.arrayBuffer();
-                    const uint8Array = new Uint8Array(arrayBuffer);
-                    const binaryString = String.fromCharCode(...uint8Array);
-                    const base64Data = btoa(binaryString);
-                    const hash = simpleHash(base64Data);
-
-                    blobData[key] = base64Data;
-                    hashData[key] = hash;
-                } catch (error) {
-                    console.warn(`Failed to serialize blob for key "${key}":`, error);
+                    const buffer = await blob.arrayBuffer();
+                    const binary = String.fromCharCode(...new Uint8Array(buffer));
+                    data[key] = btoa(binary);
+                } catch {
+                    console.warn(`Failed to serialize blob: ${key}`);
                 }
             }
-
-            localStorage.setItem('blobs', JSON.stringify(blobData));
-            localStorage.setItem('blobHashes', JSON.stringify(hashData));
+            
+            localStorage.setItem('blobs', JSON.stringify(data));
         };
-
+        
         saveToStorage();
     }, [blobs, isLoaded]);
 
     return (
-        <SaveBlobContext.Provider value={{ saveBlob, getBlob }}>
+        <SaveBlobContext.Provider value={{ saveBlob, getBlob, isLoaded, addToAddressBook, getAddressBook }}>
             {children}
         </SaveBlobContext.Provider>
     );

@@ -8,7 +8,7 @@ export default function ProfilePage({ myState, setMyState, sendPlayerState }: {
     sendPlayerState: (state: { position: [number, number, number], profile: { [key: string]: any } }) => void
 }) {
 
-    const { saveBlob } = useSaveBlob();
+    const { saveBlob, isLoaded } = useSaveBlob();
 
     const updateProfile = (key: string, value: any) => {
         const newProfile = {
@@ -25,10 +25,11 @@ export default function ProfilePage({ myState, setMyState, sendPlayerState }: {
             return newState
         });
 
-        // Save profile to blob storage
-        const profileData = new Blob([JSON.stringify(newProfile)], { type: 'application/json' });
-        saveBlob('profile', profileData);
-        console.log('Saved profile data:', newProfile);
+        // Save profile to blob storage only if provider is loaded
+        if (isLoaded) {
+            const profileData = new Blob([JSON.stringify(newProfile)], { type: 'application/json' });
+            saveBlob('profile', profileData);
+        }
     }
 
     return (
@@ -76,15 +77,15 @@ const Profile = ({ state, updateProfile }: {
     updateProfile?: (key: string, value: any) => void
 }) => {
     const wallet = useToyWallet();
-    const {
-        walletState,
-    } = wallet;
+    const { walletState } = wallet;
+    const { isLoaded } = useSaveBlob();
 
     useEffect(() => {
-        if (walletState.address) {
-            updateProfile?.('walletAddress', walletState.address);
+        // Only update profile address when both wallet is unlocked and SaveBlobProvider is ready
+        if (walletState.address && isLoaded && updateProfile) {
+            updateProfile('walletAddress', walletState.address);
         }
-    }, [walletState]);
+    }, [walletState.address, isLoaded, updateProfile]);
 
     return <div className="w-full px-2 text-black gap-y-1 flex flex-col">
         <div className="flex justify-between items-end w-full">
@@ -92,7 +93,6 @@ const Profile = ({ state, updateProfile }: {
             <input
                 type="text"
                 value={state.profile.name || ''}
-                readOnly={!updateProfile}
                 onChange={e => {
                     const name = e.target.value;
                     updateProfile?.('name', name);
