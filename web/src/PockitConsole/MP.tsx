@@ -1,6 +1,6 @@
 "use client";
 
-import { joinRoom, type DataPayload } from 'trystero'
+import { joinRoom, type DataPayload, selfId } from 'trystero'
 import { useEffect, useState, createContext, useMemo, useRef, useCallback, type ReactNode } from 'react'
 import PeerList from './PeerList'
 import ProfilePage from './ProfilePage'
@@ -256,12 +256,24 @@ export default function MP({ appId = 'pockit.world', roomId, children }: { appId
     <MPContext.Provider value={{ room, peerStates, myState }}>
       {children}
       <div
-        className={`${themes[currentTheme]} w-full h-full flex flex-row items-center rounded-[2.2rem] text-black p-4 font-sans shadow-[inset_-8px_8px_6px_-8px_#ffffff,inset_8px_-8px_6px_-8px_#000000]`}
-        style={{
-          backdropFilter: 'blur(16px)',
-        }}
+        className={`w-full h-full flex flex-row items-center -[2.2rem] text-black p-4 font-sans `}
       >
-        <div className="flex flex-col items-center justify-end min-w-[80px] text-white pr-2">
+        <div className={`absolute top-0 left-0 ${themes[currentTheme]} w-full h-full rounded-[2.2rem] shadow-[inset_-8px_8px_6px_-8px_#ffffff,inset_8px_-8px_6px_-8px_#000000]`}>
+          {/* Pager logo, simplified */}
+          <div className="absolute bottom-7 left-6 flex flex-col items-center cursor-pointer select-none text-[12px] font-bold mt-3 tracking-widest text-center" style={{ textShadow: '0 1px 4px #fff8' }}>
+            <div
+              onClick={() => {
+                playSound('/sound/click.mp3')
+                setCurrentTheme(Object.keys(themes)[Math.floor(Math.random() * Object.keys(themes).length)] as keyof typeof themes)
+                setCurrentUIPage('config')
+              }}
+              className="text-shadow-[-1px_1px_#ffffffcc,_-1px_-1px_#000000cc] text-black leading-[16px] flex items-center flex-col" >
+              POCKIT
+            </div>
+            <img src="/ui/speaker.png" className="w-10 h-10 mt-1 rounded-full" />
+          </div>
+        </div>
+        <div className="z-10 flex flex-col items-center h-full justify-start min-w-[80px] text-white pr-2 pt-4">
           {/* Pager nav buttons, simplified */}
           <div className="flex flex-col gap-2 mt-1">
             {Object.keys(pages).filter((key) => key !== 'config').map((page) => (
@@ -281,26 +293,14 @@ export default function MP({ appId = 'pockit.world', roomId, children }: { appId
               </div>
             ))}
           </div>
-          {/* Pager logo, simplified */}
-          <div className="flex flex-col items-center cursor-pointer select-none text-[12px] font-bold mt-3 tracking-widest text-center" style={{ textShadow: '0 1px 4px #fff8' }}>
-            <div
-              onClick={() => {
-                playSound('/sound/click.mp3')
-                setCurrentTheme(Object.keys(themes)[Math.floor(Math.random() * Object.keys(themes).length)] as keyof typeof themes)
-                setCurrentUIPage('config')
-              }}
-              className="text-shadow-[-1px_1px_#ffffffcc,_-1px_-1px_#000000cc] text-black leading-[16px] flex items-center flex-col" >
-              POCKIT
-            </div>
-            <img src="/ui/speaker.png" className="w-10 h-10 mt-1 rounded-full" />
-          </div>
+
         </div>
         {/* Pager screen with glass effect, simplified */}
         <div
-          className="rounded-2xl border h-full flex-1 flex relative overflow-hidden"
+          className="rounded-2xl h-full flex-1 flex relative overflow-hidden"
           style={{
-            background: currentTheme == 'metal' ? '#b2d8b2' : 'linear-gradient(rgba(190, 190, 190, 1), rgba(182, 182, 182, 1))',
-            boxShadow: 'inset 0 0 16px 2px #5f5f5fff, rgb(91, 91, 91) -1px 1px 1px inset, rgb(5, 5, 5) -1px 1px 3px inset',
+            background: currentTheme == 'metal' ? '#b2d8b2' : 'linear-gradient(rgba(222, 222, 222, 1), rgba(185, 185, 185, 1))',
+            boxShadow: 'inset 0 0 6px 0.5px #414141ff, rgba(255, 255, 255, 0.5) -1px 1px 4px 1px, rgba(0, 0, 0, 0.7) 1px -1px 2px 1px',
           }}
         >
           {pages[currentUIPage]}

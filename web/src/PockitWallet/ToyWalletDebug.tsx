@@ -23,9 +23,17 @@ export default function ToyWalletDebug({ onClose }: Props) {
     };
 
     const actions = {
-        sign: async () => { const r = await handleSign(message, useIdentityMode); if (r) { setOutput(r); setResult(null); } },
+        sign: async () => { const r = await handleSign(message); if (r) { setOutput(JSON.stringify(r)); setResult(null); } },
         seal: async () => { const r = await handleSeal(message, targetKey, useIdentityMode); if (r) { setOutput(r); setResult(null); } },
-        verify: async () => { const r = await handleVerify(output); if (r) setResult({ type: 'verify', ...r }); },
+        verify: async () => {
+            try {
+                const { m, s, f } = JSON.parse(output);
+                const r = await handleVerify({ m, s, f });
+                if (r) setResult({ type: 'verify', ...r });
+            } catch {
+                setResult({ type: 'verify', valid: false, message: 'Invalid input format' });
+            }
+        },
         unseal: async () => { const r = await handleUnseal(output); if (r) setResult({ type: 'unseal', ...r }); },
         copyAddr: async () => { await copyAddress(); showFeedback(); },
         copyPubKey: async () => { await copyPublicKey(); showFeedback(); },

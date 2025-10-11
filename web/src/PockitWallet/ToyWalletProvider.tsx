@@ -28,10 +28,10 @@ interface ToyWalletContextType {
     getPrivateKey: () => Promise<`0x${string}` | null>;
 
     // Cryptographic functions
-    handleSign: (message: string, useIdentityMode: boolean) => Promise<string>;
+    handleSign: (message: string) => Promise<{ m: any; s: string; f: string } | null>;
     handleSeal: (message: string, targetPublicKey: string, useIdentityMode: boolean) => Promise<string>;
     handleUnseal: (sealedMessage: string) => Promise<UnsealedMessage | null>;
-    handleVerify: (signedMessage: string) => Promise<{ valid: boolean; message: string; from?: string } | null>;
+    handleVerify: ({ m, s, f }: { m: any; s: string; f: string }) => Promise<{ valid: boolean; message: any; from?: string } | null>;
 
     // Utility functions
     handleReset: () => void;
@@ -326,91 +326,41 @@ export function ToyWalletProvider({ children }: { children: ReactNode }) {
         setShowPinInput(false);
     };
 
-    const handleSign = async (message: string, useIdentityMode: boolean): Promise<string> => {
-        if (!unlocked || !message.trim()) {
-            setError('Unlock wallet and enter a message');
-            return '';
-        }
-
+    const handleSign = async (message: string): Promise<{ m: string; s: string; f: string } | null> => {
         try {
             const privateKey = await getPrivateKey();
             if (!privateKey) {
                 setError('Failed to get private key');
-                return '';
-            }
-
-            let signingKey: `0x${string}`;
-            let fromAddress: string | undefined;
-
-            if (useIdentityMode) {
-                // Use your real identity key
-                signingKey = privateKey;
-                const account = privateKeyToAccount(privateKey);
-                fromAddress = account.address;
-            } else {
-                // Use ephemeral key (untraceable)
-                signingKey = generatePrivateKey();
-                fromAddress = undefined;
-            }
-
-            const account = privateKeyToAccount(signingKey);
-            const sig = await account.signMessage({ message });
-
-            // Create signed message envelope
-            const signedEnvelope = JSON.stringify({
-                m: message,
-                s: sig,
-                ...(fromAddress && { f: fromAddress })
-            });
-
-            setError('');
-            return signedEnvelope;
-        } catch (err: any) {
-            setError('Failed to sign: ' + err.message);
-            return '';
-        }
-    };
-
-    const handleVerify = async (signedMessage: string): Promise<{ valid: boolean; message: string; from?: string } | null> => {
-        if (!signedMessage.trim()) {
-            setError('Enter signed message');
-            return null;
-        }
-
-        try {
-            const envelope = JSON.parse(signedMessage);
-            const { m: message, s: signature, f: fromAddress } = envelope;
-
-            if (!message || !signature) {
-                setError('Invalid signed message format');
                 return null;
             }
 
-            // If there's a from address, verify using that address
-            // If not, it's an anonymous signature and we can't verify the signer
-            if (fromAddress) {
-                const isValid = await verifyMessage({
-                    address: fromAddress as `0x${string}`,
-                    message,
-                    signature
-                });
+            const account = privateKeyToAccount(privateKey);
+            const fromAddress = account.address;
 
-                setError('');
-                return {
-                    valid: isValid,
-                    message,
-                    from: fromAddress
-                };
-            } else {
-                // Anonymous signature - we can't verify the signer identity
-                // but we can extract the message
-                setError('');
-                return {
-                    valid: true, // We assume the signature is valid since we can't verify anonymous sigs
-                    message,
-                    from: undefined
-                };
-            }
+            setError('');
+            return {
+                m: message,
+                s: await account.signMessage({ message }),
+                f: fromAddress
+            };
+        } catch (err: any) {
+            setError('Failed to sign: ' + err.message);
+            return null;
+        }
+    };
+
+    const handleVerify = async ({ m, s, f }: { m: any; s: string; f: string }): Promise<{ valid: boolean; message: any; from?: string } | null> => {
+        try {
+            return {
+                valid: await verifyMessage({
+                    address: f as `0x${string}`,
+                    message: m,
+                    signature: s as `0x${string}`
+                }),
+                message: m,
+                from: f
+            };
+
         } catch (err: any) {
             setError('Failed to verify: ' + err.message);
             return null;
