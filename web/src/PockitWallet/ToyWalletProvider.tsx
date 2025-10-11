@@ -349,22 +349,16 @@ export function ToyWalletProvider({ children }: { children: ReactNode }) {
         }
     };
 
-    const handleVerify = async ({ m, s, f }: { m: any; s: string; f: string }): Promise<{ valid: boolean; message: any; from?: string } | null> => {
-        try {
-            return {
-                valid: await verifyMessage({
-                    address: f as `0x${string}`,
-                    message: m,
-                    signature: s as `0x${string}`
-                }),
+    const handleVerify = async ({ m, s, f }: { m: any; s: string; f: string }): Promise<{ valid: boolean; message: any; from?: string }> => {
+        return {
+            valid: await verifyMessage({
+                address: f as `0x${string}`,
                 message: m,
-                from: f
-            };
-
-        } catch (err: any) {
-            setError('Failed to verify: ' + err.message);
-            return null;
-        }
+                signature: s as `0x${string}`
+            }),
+            message: m,
+            from: f
+        };
     };
 
     const handleSeal = async (message: string, targetPublicKey: string, useIdentityMode: boolean): Promise<string> => {

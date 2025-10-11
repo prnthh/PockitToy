@@ -174,21 +174,21 @@ export default function MP({ appId = 'pockit.world', roomId, children }: { appId
 
   const handlePeerState = useCallback((state: any, peer: string) => {
     if (state && typeof state.profile === 'object') {
-      console.log('Got peer state:', peer, state, selfId);
-      if (state.signature && state.profile.walletAddress) {
+      if (state.signature || state.profile.walletAddress) {
         // TODO verify signature
         handleVerify({
           m: JSON.stringify(state.profile),
           s: state.signature,
           f: state.profile.walletAddress
-        }).then((isValid) => {
-          console.log('Signature valid:', isValid);
-        }).catch((err) => {
-          console.log('Signature verification error:', err);
+        }).then(() => {
+          // console.log('Signature valid:', isValid);
+        }).catch(() => {
           delete state.profile.walletAddress;
           delete state.signature;
         });
       }
+      console.log('Got peer state:', peer, state.signature ? '(signed)' : '(unsigned)', state);
+
       setPeerStates(peerStates => {
         return {
           ...peerStates,
