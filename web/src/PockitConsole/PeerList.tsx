@@ -141,12 +141,12 @@ export default function PeerList({ sendChat }: { sendChat: (msg: string, peer?: 
                             onClick={e => e.stopPropagation()}
                         >
                             {contact.isOnline && (
-                                <button className={buttonStyle} onClick={(e) => {
+                                <button className={buttonStyle} onClick={() => {
                                     setDmTarget(contact.peerId || contact.id);
                                 }}>DM</button>
                             )}
                             {!contact.isFriend && contact.peerId && (
-                                <button className={buttonStyle} onClick={(e) => {
+                                <button className={buttonStyle} onClick={() => {
                                     try {
                                         const peers = room.getPeers();
                                         if (contact.peerId && peers[contact.peerId]) {
@@ -157,7 +157,7 @@ export default function PeerList({ sendChat }: { sendChat: (msg: string, peer?: 
                             )}
                             {contact.isFriend && (
                                 <button className={`${buttonStyle} bg-red-500/30 text-red-300`}
-                                    onClick={(e) => {
+                                    onClick={() => {
                                         deleteContact(contact.walletAddress!);
                                     }}>Delete</button>
                             )}
