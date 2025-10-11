@@ -362,7 +362,7 @@ export default function MP({ appId = 'pockit.world', roomId, children }: { appId
 }
 
 const WalletLock = ({ unlockHint }: { unlockHint: () => void }) => {
-  const { walletState, lock, unlock } = useToyWallet();
+  const { walletState, lock } = useToyWallet();
 
   return <div className='flex justify-between w-full'>
     <div className={`${walletState.unlocked ? 'bg-green-500' : 'bg-red-500'} h-[50px] w-[30px] rounded-tl-[22px] rounded flex flex-col items-center relative  shadow-[inset_0px_0px_6px_0px_#000000]`}>
