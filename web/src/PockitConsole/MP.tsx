@@ -140,7 +140,7 @@ export default function MP({ appId = 'pockit.world', roomId, children }: { appId
       // if not signed, allow only name and avatar updates
       // if signed and verified, allow full profile updates
 
-      console.log('Peer state updated:', peer, state);
+      console.log('Peer state updated:', peer, state, selfId);
       setPeerStates(states => {
         const peerState = {
           ...states[peer], ...state,
