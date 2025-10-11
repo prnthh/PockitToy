@@ -326,12 +326,12 @@ export function ToyWalletProvider({ children }: { children: ReactNode }) {
         setShowPinInput(false);
     };
 
-    const handleSign = async (message: string): Promise<{ m: string; s: string; f: string } | null> => {
+    const handleSign = async (message: string): Promise<{ m: string; s: string; f: string }> => {
         try {
             const privateKey = await getPrivateKey();
+
             if (!privateKey) {
-                setError('Failed to get private key');
-                return null;
+                return Promise.reject(new Error('Wallet locked or no private key'));
             }
 
             const account = privateKeyToAccount(privateKey);
@@ -344,8 +344,8 @@ export function ToyWalletProvider({ children }: { children: ReactNode }) {
                 f: fromAddress
             };
         } catch (err: any) {
-            setError('Failed to sign: ' + err.message);
-            return null;
+            console.error('Failed to sign message:', err);
+            return err;
         }
     };
 

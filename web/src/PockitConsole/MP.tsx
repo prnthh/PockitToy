@@ -7,6 +7,7 @@ import ProfilePage from './ProfilePage'
 import ChatBox from './ChatBox'
 import { useAudio } from '@/shared/AudioProvider'
 import { useSaveBlob } from '@/shared/SaveBlobProvider'
+import { useToyWallet } from '@/PockitWallet/ToyWalletProvider';
 
 const themes = {
   metal: "bg-gradient-to-br from-[#2229] to-[#2226]", // original gray
@@ -105,6 +106,8 @@ export default function MP({ appId = 'pockit.world', roomId, children }: { appId
     };
   }, [room]);
 
+  const { handleSign, walletState } = useToyWallet();
+
   // Peer states
   const [sendPlayerState, getPeerStates] = room.makeAction('peerState')
   const [peerStates, setPeerStates] = useState<Record<string, PeerState>>({})
@@ -121,8 +124,44 @@ export default function MP({ appId = 'pockit.world', roomId, children }: { appId
   const [consoleMessages, setConsoleMessages] = useState<Array<{ peer: string, message: string | ReactNode }>>([])
   const { playSound } = useAudio();
 
+  const trySignState = useCallback(async (state: any) => {
+    const stateToSend = { ...state, profile: { ...(state?.profile || {}) } };
+    stateToSend.profile.peerId = selfId;
+
+    try {
+      const result = await handleSign(JSON.stringify(stateToSend.profile));
+      if (result && typeof result.s === 'string') {
+        const { m, s, f } = result;
+        console.log('Profile signed successfully', { m: JSON.parse(m), s, f });
+        stateToSend.signature = s;
+      }
+    } catch (error) {
+      // console.log('Failed to sign profile:', error);
+    }
+
+    return stateToSend;
+  }, [handleSign]);
+
+
+  useEffect(() => {
+    if (walletState.unlocked) {
+      const stateToSend = { ...myStateRef.current }
+      stateToSend.profile.peerId = selfId
+
+      trySignState(stateToSend).then((signedState) => {
+        sendPlayerState(signedState);
+      })
+    }
+  }, [walletState.unlocked])
+
   const handlePeerJoin = useCallback((peer: string) => {
-    sendPlayerState(myStateRef.current, peer)
+    const stateToSend = { ...myStateRef.current }
+    stateToSend.profile.peerId = selfId
+
+    trySignState(stateToSend).then((signedState) => {
+      sendPlayerState(signedState, peer);
+    })
+
   }, [sendPlayerState])
 
   const handlePeerLeave = useCallback((peer: string) => {
@@ -140,7 +179,7 @@ export default function MP({ appId = 'pockit.world', roomId, children }: { appId
       // if not signed, allow only name and avatar updates
       // if signed and verified, allow full profile updates
 
-      console.log('Peer state updated:', peer, state, selfId);
+      console.log('Got peer state:', peer, state, selfId);
       setPeerStates(states => {
         const peerState = {
           ...states[peer], ...state,
@@ -209,25 +248,25 @@ export default function MP({ appId = 'pockit.world', roomId, children }: { appId
   }, [room, getPeerStates, getChat, handlePeerJoin, handlePeerLeave, handlePeerState, handleChatMessage])
 
   // Listen for local position updates from parent
-  useEffect(() => {
-    const handler = (e: CustomEvent) => {
-      const pos = e.detail as [number, number, number]
-      setMyState(state => ({ ...state, position: pos }))
-      // Use myStateRef to get current state without stale closure
-      sendPlayerState({ ...myStateRef.current, position: pos })
-    }
-    window.addEventListener('mp-pos', handler as EventListener)
-    return () => window.removeEventListener('mp-pos', handler as EventListener)
-  }, [sendPlayerState])
+  // useEffect(() => {
+  //   const handler = (e: CustomEvent) => {
+  //     const pos = e.detail as [number, number, number]
+  //     setMyState(state => ({ ...state, position: pos }))
+  //     // Use myStateRef to get current state without stale closure
+  //     // sendPlayerState({ ...myStateRef.current, position: pos })
+  //   }
+  //   window.addEventListener('mp-pos', handler as EventListener)
+  //   return () => window.removeEventListener('mp-pos', handler as EventListener)
+  // }, [sendPlayerState])
 
   // Listen for room events from parent, room is stateless
-  useEffect(() => {
-    const handler = (e: CustomEvent) => {
-      sendChat(`/event ${JSON.stringify(e.detail)}`)
-    }
-    window.addEventListener('mp-trigger', handler as EventListener)
-    return () => window.removeEventListener('mp-trigger', handler as EventListener)
-  }, [sendChat])
+  // useEffect(() => {
+  //   const handler = (e: CustomEvent) => {
+  //     sendChat(`/event ${JSON.stringify(e.detail)}`)
+  //   }
+  //   window.addEventListener('mp-trigger', handler as EventListener)
+  //   return () => window.removeEventListener('mp-trigger', handler as EventListener)
+  // }, [sendChat])
 
   const pages = useMemo(() => ({
     profile: <ProfilePage
