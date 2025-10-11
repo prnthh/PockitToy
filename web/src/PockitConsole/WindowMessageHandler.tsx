@@ -22,5 +22,7 @@ export default function WindowMessageHandler() {
         };
     }, []);
 
+    // todo track pending requests with a promise and resolve them when we get a response, use a nonce to identify them
+
     return null;
 }
