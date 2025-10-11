@@ -106,7 +106,7 @@ export default function MP({ appId = 'pockit.world', roomId, children }: { appId
     };
   }, [room]);
 
-  const { handleSign, walletState } = useToyWallet();
+  const { handleSign, handleVerify, walletState } = useToyWallet();
 
   // Peer states
   const [sendPlayerState, getPeerStates] = room.makeAction('peerState')
@@ -174,20 +174,28 @@ export default function MP({ appId = 'pockit.world', roomId, children }: { appId
 
   const handlePeerState = useCallback((state: any, peer: string) => {
     if (state && typeof state.profile === 'object') {
-
-      // todo if a peer state has a wallet address and is signed, verify it or drop it
-      // if not signed, allow only name and avatar updates
-      // if signed and verified, allow full profile updates
-
       console.log('Got peer state:', peer, state, selfId);
-      setPeerStates(states => {
-        const peerState = {
-          ...states[peer], ...state,
-        };
-
+      if (state.signature && state.profile.walletAddress) {
+        // TODO verify signature
+        handleVerify({
+          m: JSON.stringify(state.profile),
+          s: state.signature,
+          f: state.profile.walletAddress
+        }).then((isValid) => {
+          console.log('Signature valid:', isValid);
+        }).catch((err) => {
+          console.log('Signature verification error:', err);
+          delete state.profile.walletAddress;
+          delete state.signature;
+        });
+      }
+      setPeerStates(peerStates => {
         return {
-          ...states,
-          [peer]: peerState
+          ...peerStates,
+          [peer]: {
+            ...peerStates[peer],
+            ...state,
+          }
         }
       })
     }
