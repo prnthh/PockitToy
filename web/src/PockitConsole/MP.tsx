@@ -8,6 +8,8 @@ import ChatBox from './ChatBox'
 import { useAudio } from '@/shared/AudioProvider'
 import { useSaveBlob } from '@/shared/SaveBlobProvider'
 import { useToyWallet } from '@/PockitWallet/ToyWalletProvider';
+import ConfigPage from './Config';
+import WindowMessageHandler from './WindowMessageHandler';
 
 const themes = {
   metal: "bg-gradient-to-br from-[#2229] to-[#2226]", // original gray
@@ -292,7 +294,7 @@ export default function MP({ appId = 'pockit.world', roomId, children }: { appId
     friends: <PeerList
       sendChat={sendChat}
     />,
-    config: <div className='w-full h-full flex items-center justify-center text-black'>current channel / trusted domains / trusted admins</div>
+    config: <ConfigPage />
   }), [myState, setMyState, sendPlayerState, chatInput, setChatInput, sendChat, consoleMessages, setConsoleMessages]);
 
   const [currentUIPage, setCurrentUIPage] = useState<keyof typeof pages>(Object.keys(pages)[0] as keyof typeof pages)
@@ -302,6 +304,7 @@ export default function MP({ appId = 'pockit.world', roomId, children }: { appId
   return (
     <MPContext.Provider value={{ room, peerStates, myState }}>
       {children}
+      <WindowMessageHandler />
       <div
         className={`w-full h-full flex flex-row items-center -[2.2rem] text-black p-3 font-sans `}
       >
@@ -320,7 +323,7 @@ export default function MP({ appId = 'pockit.world', roomId, children }: { appId
             {/* <img src="/ui/speaker.png" className="w-10 h-10 mt-1 rounded-full" /> */}
           </div>
         </div>
-        <div className="z-10 flex flex-col items-center h-full justify-start min-w-[80px] font-mono">
+        <div className="z-10 flex flex-col items-center self-start justify-start min-w-[80px] font-mono">
           <WalletLock unlockHint={() => {
             setCurrentUIPage('profile')
           }} />

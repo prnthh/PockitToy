@@ -137,16 +137,16 @@ export default function PeerList({ sendChat }: { sendChat: (msg: string, peer?: 
                     </div>
 
                     {selected === contact.id && (
-                        <div className="bg-black/25 border rounded mt-1 p-1 flex gap-1">
+                        <div className="bg-black/25 border rounded mt-1 p-1 flex gap-1"
+                            onClick={e => e.stopPropagation()}
+                        >
                             {contact.isOnline && (
                                 <button className={buttonStyle} onClick={(e) => {
-                                    e.stopPropagation();
                                     setDmTarget(contact.peerId || contact.id);
                                 }}>DM</button>
                             )}
                             {!contact.isFriend && contact.peerId && (
                                 <button className={buttonStyle} onClick={(e) => {
-                                    e.stopPropagation();
                                     try {
                                         const peers = room.getPeers();
                                         if (contact.peerId && peers[contact.peerId]) {
@@ -158,13 +158,13 @@ export default function PeerList({ sendChat }: { sendChat: (msg: string, peer?: 
                             {contact.isFriend && (
                                 <button className={`${buttonStyle} bg-red-500/30 text-red-300`}
                                     onClick={(e) => {
-                                        e.stopPropagation();
                                         deleteContact(contact.walletAddress!);
                                     }}>Delete</button>
                             )}
 
                             <textarea
                                 readOnly
+                                onPointerLeave={(e) => e.stopPropagation()}
                                 className="flex-1 bg-black/10 text-white text-[10px] font-mono p-1 rounded border border-black/30 resize-none"
                                 value={contact.profile ? JSON.stringify(contact.profile, null, 2) : 'No profile data'}
                             />
