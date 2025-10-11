@@ -362,7 +362,15 @@ export default function MP({ appId = 'pockit.world', roomId, children }: { appId
 }
 
 const WalletLock = ({ unlockHint }: { unlockHint: () => void }) => {
-  const { walletState, lock } = useToyWallet();
+  const { walletState, lock, setShowPinInput } = useToyWallet();
+  const [tryUnlock, setTryUnlock] = useState(false);
+
+  useEffect(() => {
+    if (!tryUnlock) return;
+    setTimeout(() => {
+      setTryUnlock(false);
+    }, 100);
+  }, [tryUnlock]);
 
   return <div className='flex justify-between w-full'>
     <div className={`${walletState.unlocked ? 'bg-green-500' : 'bg-red-500'} h-[50px] w-[30px] rounded-tl-[22px] rounded flex flex-col items-center relative  shadow-[inset_0px_0px_6px_0px_#000000]`}>
@@ -371,12 +379,15 @@ const WalletLock = ({ unlockHint }: { unlockHint: () => void }) => {
           if (walletState.unlocked) {
             lock();
           } else {
-            // unlock();
             unlockHint();
+            setTryUnlock(true);
+            setShowPinInput(true);
           }
         }}
         title={walletState.unlocked ? 'Click to lock wallet' : 'Click to unlock wallet'}
-        className={`${walletState.unlocked ? 'top-[2px]' : 'top-[calc(100%-32px)]'} 
+        className={`${walletState.unlocked ? 'top-[2px]' :
+          tryUnlock ? 'top-[6px]' :
+            'top-[calc(100%-32px)]'} 
         text-xs flex items-center justify-center pl-0.5 pt-0.5 
         shadow-[0px_0px_3px_0px_#000000,inset_-8px_8px_6px_-8px_#aaaaaa,inset_8px_-8px_6px_-8px_#888888] 
         absolute bg-white transition-all h-[30px] w-[88%] rounded rounded-tl-[21px]`
