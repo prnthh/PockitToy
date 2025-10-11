@@ -303,11 +303,11 @@ export default function MP({ appId = 'pockit.world', roomId, children }: { appId
     <MPContext.Provider value={{ room, peerStates, myState }}>
       {children}
       <div
-        className={`w-full h-full flex flex-row items-center -[2.2rem] text-black p-4 font-sans `}
+        className={`w-full h-full flex flex-row items-center -[2.2rem] text-black p-3 font-sans `}
       >
         <div className={`absolute top-0 left-0 ${themes[currentTheme]} w-full h-full rounded-[2.2rem] shadow-[inset_-8px_8px_6px_-8px_#ffffff,inset_8px_-8px_6px_-8px_#000000]`}>
           {/* Pager logo, simplified */}
-          <div className="absolute bottom-7 left-6 flex flex-col items-center cursor-pointer select-none text-[12px] font-bold mt-3 tracking-widest text-center" style={{ textShadow: '0 1px 4px #fff8' }}>
+          <div className="absolute bottom-8 left-5 flex flex-col items-center cursor-pointer select-none text-[12px] font-bold mt-3 tracking-widest text-center" style={{ textShadow: '0 1px 4px #fff8' }}>
             <div
               onClick={() => {
                 playSound('/sound/click.mp3')
@@ -317,19 +317,19 @@ export default function MP({ appId = 'pockit.world', roomId, children }: { appId
               className="text-shadow-[-1px_1px_#ffffffcc,_-1px_-1px_#000000cc] text-black leading-[16px] flex items-center flex-col" >
               POCKIT
             </div>
-            <img src="/ui/speaker.png" className="w-10 h-10 mt-1 rounded-full" />
+            {/* <img src="/ui/speaker.png" className="w-10 h-10 mt-1 rounded-full" /> */}
           </div>
         </div>
-        <div className="z-10 flex flex-col items-center h-full justify-start min-w-[80px] text-white pr-2 pt-4">
+        <div className="z-10 flex flex-col items-center h-full justify-start min-w-[80px] font-mono">
+          <WalletLock unlockHint={() => {
+            setCurrentUIPage('profile')
+          }} />
           {/* Pager nav buttons, simplified */}
-          <div className="flex flex-col gap-2 mt-1">
+          <div className="flex flex-col gap-2 mt-4 mr-3">
             {Object.keys(pages).filter((key) => key !== 'config').map((page) => (
               <div
                 key={page}
-                className={`${page === currentUIPage ? 'bg-[#1976d2]' : 'bg-gradient-to-br from-[#1976d2] to-[#8cf]'} hover:scale-102 active:scale-95 transition-all h-5 px-1 cursor-pointer rounded-full border shadow flex items-center justify-center font-bold text-[13px]`}
-                style={{
-                  boxShadow: '0 1px 4px 0 #8cf8',
-                }}
+                className={`${page === currentUIPage ? 'bg-[#ffffffdd]' : 'bg-[#dddddddd]'} hover:scale-102 active:scale-95 transition-all h-5 px-2 cursor-pointer rounded-full shadow active:shadow-sm flex items-center justify-center text-[10px]`}
                 onMouseEnter={() => playSound('/sound/click.mp3')}
                 onPointerDown={() => playSound('/sound/click2.mp3')}
                 onClick={() => {
@@ -359,6 +359,39 @@ export default function MP({ appId = 'pockit.world', roomId, children }: { appId
       </div>
     </MPContext.Provider >
   )
+}
+
+const WalletLock = ({ unlockHint }: { unlockHint: () => void }) => {
+  const { walletState, lock, unlock } = useToyWallet();
+
+  return <div className='flex justify-between w-full'>
+    <div className={`${walletState.unlocked ? 'bg-green-500' : 'bg-red-500'} h-[50px] w-[30px] rounded-tl-[22px] rounded flex flex-col items-center relative  shadow-[inset_0px_0px_6px_0px_#000000]`}>
+      <div
+        onClick={() => {
+          if (walletState.unlocked) {
+            lock();
+          } else {
+            // unlock();
+            unlockHint();
+          }
+        }}
+        title={walletState.unlocked ? 'Click to lock wallet' : 'Click to unlock wallet'}
+        className={`${walletState.unlocked ? 'top-[2px]' : 'top-[calc(100%-32px)]'} 
+        text-xs flex items-center justify-center pl-0.5 pt-0.5 
+        shadow-[0px_0px_3px_0px_#000000,inset_-8px_8px_6px_-8px_#aaaaaa,inset_8px_-8px_6px_-8px_#888888] 
+        absolute bg-white transition-all h-[30px] w-[88%] rounded rounded-tl-[21px]`
+        }
+      >
+        {walletState.unlocked ? `🔓` : `🔒`}
+      </div>
+    </div>
+    <div className='flex flex-col items-start p-2 grow gap-y-2 w-[10px]'>
+      <div className='ml-2 w-[8px] h-[8px] bg-green-500 rounded-full        shadow-[0px_0px_3px_0px_#000000,inset_-1px_1px_0.5px_-1px_#ffffff,inset_1px_-1px_0.5px_-1px_#000000] 
+'></div>
+      <div className='ml-2 w-[8px] h-[8px] bg-amber-500 rounded-full         shadow-[0px_0px_3px_0px_#000000,inset_-1px_1px_0.5px_-1px_#ffffff,inset_1px_-1px_0.5px_-1px_#000000] 
+'></div>
+    </div>
+  </div>
 }
 
 
