@@ -310,6 +310,7 @@ export default function MP({ appId = 'pockit.world', roomId, children }: { appId
       >
         <div className={`absolute top-0 left-0 ${themes[currentTheme]} w-full h-full rounded-[2.2rem] shadow-[inset_-8px_8px_6px_-8px_#ffffff,inset_8px_-8px_6px_-8px_#000000]`}>
           {/* Pager logo, simplified */}
+          <img src="/ui/skins/circuit.png" className="absolute top-0 left-0 w-full h-full rounded-[2.2rem] mix-blend-hard-light" />
           <div className="absolute bottom-8 left-5 flex flex-col items-center cursor-pointer select-none text-[12px] font-bold mt-3 tracking-widest text-center" style={{ textShadow: '0 1px 4px #fff8' }}>
             <div
               onClick={() => {
