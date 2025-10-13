@@ -1,4 +1,4 @@
-import { useState, createContext, useContext, type ReactNode } from "react";
+import { useState, useEffect, createContext, useContext, type ReactNode } from "react";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import { hexToBytes, verifyMessage } from "viem";
 import * as secp from '@noble/secp256k1';
@@ -279,6 +279,17 @@ export function ToyWalletProvider({ children }: { children: ReactNode }) {
     const [publicKey, setPublicKey] = useState('');
     const [showPinInput, setShowPinInput] = useState(false);
     const [error, setError] = useState('');
+    // Ensure wallet is locked if there is no stored key on mount and when storage changes
+    useEffect(() => {
+        if (!keyExists()) lock();
+        const handler = (e: StorageEvent) => {
+            if (e.key === 'wallet' && e.newValue === null) {
+                lock();
+            }
+        };
+        window.addEventListener('storage', handler);
+        return () => window.removeEventListener('storage', handler);
+    }, []);
 
     // Helper to get private key when needed
     const getPrivateKey = async (): Promise<`0x${string}` | null> => {
@@ -429,6 +440,7 @@ export function ToyWalletProvider({ children }: { children: ReactNode }) {
             const newPin = prompt('Enter a 4-digit PIN:');
             if (!newPin || newPin.length !== 4 || !/^\d{4}$/.test(newPin)) throw new Error('Invalid PIN');
             await saveEncryptedKey(key as `0x${string}`, newPin);
+
             setError('');
         } catch (err: any) {
             setError(err.message);

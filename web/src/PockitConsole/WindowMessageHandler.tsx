@@ -2,11 +2,13 @@ import { useEffect } from "react";
 
 export default function WindowMessageHandler() {
     // const [knownOrigins, setKnownOrigins] = ['https://pockit.world', 'https://draw.pockit.world', "*"];
-
+    // use this component to bridge window.ethereum calls from the parent to our own ethereum provider.
     useEffect(() => {
         function handleMessage(event: MessageEvent) {
+            const { type, payload, source } = event.data;
+            if (source !== window.parent) return; // only accept messages from the parent window
             console.log('Received message:', event);
-            const { type, payload } = event.data;
+
             if (type === 'CUSTOM_EVENT') {
                 console.log('Received CUSTOM_EVENT with payload:', payload);
                 // Handle the custom event

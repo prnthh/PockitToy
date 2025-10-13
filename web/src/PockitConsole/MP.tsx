@@ -63,7 +63,7 @@ export default function MP({ appId = 'pockit.world', roomId, children }: { appId
         profile: profile
       }));
     }
-  }, [isLoaded]); // Only run when SaveBlob is loaded
+  }, [profile]); // Run when profile changes
 
   const [connectionKey, setConnectionKey] = useState(Math.random())
   const room = useMemo(() => joinRoom({ appId, password: undefined }, roomId), [appId, roomId, connectionKey])
@@ -219,7 +219,7 @@ export default function MP({ appId = 'pockit.world', roomId, children }: { appId
         }));
       }
     });
-  }, [isLoaded, peerStates, setAddressBook]);
+  }, [isLoaded, peerStates]); // Run when peerStates change
 
   const handleChatMessage = useCallback((data: DataPayload, peer: string) => {
     if (typeof data === 'string') {

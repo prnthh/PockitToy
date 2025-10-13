@@ -1,14 +1,29 @@
 import { useState } from "react";
 import { encodeFunctionData, decodeFunctionResult, type Abi, formatEther } from 'viem';
 
-function MockContractReader() {
+
+
+// ------------------------
+// Mock client: reads a value from a contract using the injected provider
+// This uses viem's ABI helpers for encoding/decoding, and calls window.ethereum.request({ method: 'eth_call' })
+// so it talks to the provider installed by this file.
+function MockContractReader2({
+    contractAddress,
+    abi,
+    functionName,
+    args
+}: {
+    contractAddress: `0x${string}`;
+    abi: Abi;
+    functionName: string;
+    args?: unknown[];
+}) {
+    const [value, setValue] = useState<any>(null);
+    const [error, setError] = useState<string | null>(null);
     const [balance, setBalance] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
 
-    // read ETH balance of a famous wallet (Vitalik) on the provider's network
-    const targetAddress = '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045'; // Vitalik
-
-    async function readBalance() {
+    async function readBalance(targetAddress: `0x${string}` = '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045') {
         if (!window.ethereum) return;
         setLoading(true);
         try {
@@ -29,36 +44,6 @@ function MockContractReader() {
             setLoading(false);
         }
     }
-
-    return (
-        <div className="mt-2 text-xs">
-            <div className="flex items-center space-x-2">
-                <button onClick={readBalance} className="px-2 py-1 rounded bg-blue-600 text-white">Read balance</button>
-                {loading ? <span>Loading…</span> : <span>{balance !== null ? `Balance: ${balance}` : '—'}</span>}
-            </div>
-        </div>
-    );
-}
-
-
-// ------------------------
-// Mock client: reads a value from a contract using the injected provider
-// This uses viem's ABI helpers for encoding/decoding, and calls window.ethereum.request({ method: 'eth_call' })
-// so it talks to the provider installed by this file.
-export function MockContractReader2({
-    contractAddress,
-    abi,
-    functionName,
-    args
-}: {
-    contractAddress: `0x${string}`;
-    abi: Abi;
-    functionName: string;
-    args?: unknown[];
-}) {
-    const [value, setValue] = useState<any>(null);
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
 
     const readValue = async () => {
         setError(null);
@@ -86,29 +71,46 @@ export function MockContractReader2({
     };
 
     return (
-        <div className=" text-xs">
-            <div>Contract: {contractAddress}</div>
-            <div>Method: {functionName}</div>
-            <button onClick={readValue} disabled={loading}>
-                {loading ? 'Reading...' : 'Read from chain'}
-            </button>
-            {error && <div style={{ color: 'red' }}>Error: {error}</div>}
-            {value !== null && (
-                <div>
-                    <strong>Result:</strong>
-                    <pre>{JSON.stringify(value, null, 2)}</pre>
-                </div>
-            )}
-        </div>
+        <CartridgeWrapper>
+            <div className=" text-xs">
+                <span className='text-slate-700 italic text-xl font-bold'>Ethereum Cartridge</span>
+
+                <div>Contract: {contractAddress}</div>
+                <div>Method: {functionName}</div>
+                <button onClick={readValue} disabled={loading}>
+                    {loading ? 'Reading...' : 'Read from chain'}
+                </button>
+                {error && <div style={{ color: 'red' }}>Error: {error}</div>}
+                {value !== null && (
+                    <div>
+                        <strong>Result:</strong>
+                        <pre>{JSON.stringify(value, null, 2)}</pre>
+                    </div>
+                )}
+            </div>
+            <div className="flex flex-col items-center space-x-2">
+                <button onClick={() => readBalance()} className="px-2 py-1 rounded bg-blue-600 text-white">Read balance</button>
+                {loading ? <span>Loading…</span> : <span>{balance !== null ? `Balance: ${balance}` : '—'}</span>}
+            </div>
+        </CartridgeWrapper>
     );
 }
 
-export { MockContractReader };
+function Game() {
+    return (
+        <CartridgeWrapper className="!bg-red-500">
+            <span className='text-slate-700 italic text-xl font-bold'>Cheese Blaster</span>
 
-export default function EthereumCartridge() {
-    return <div className='absolute h-[200px] overflow-y-auto noscrollbar bottom-[300px] left-1/2 -translate-x-1/2 z-[20] bg-slate-300/50 rounded-2xl p-4 shadow-lg flex flex-col gap-4 items-center'>
-        <span className='text-slate-700 italic text-xl font-bold'>Ethereum Cartridge</span>
-        <MockContractReader />
+            <div className="flex flex-col items-center space-x-2">
+
+                amazing tek
+            </div>
+        </CartridgeWrapper>
+    );
+}
+
+export default function EthereumCartridgeCarousel() {
+    return <div className='absolute left-1/2 -translate-x-1/2 w-screen flex justify-center bottom-[300px] gap-x-8 pointer-events-none z-[20]'>
         <MockContractReader2
             contractAddress={'0x0000000000000000000000000000000000000000'}
             abi={[
@@ -122,5 +124,14 @@ export default function EthereumCartridge() {
             ]}
             functionName={'name'}
         />
+        <Game />
     </div>
+}
+
+function CartridgeWrapper({ children, className }: { children: React.ReactNode; className?: string }) {
+    return <div className={`pointer-events-auto h-[200px] overflow-y-auto noscrollbar bottom-[300px] z-[20] bg-white rounded-2xl p-4 shadow-[inset_-2px_2px_4px_rgba(225,225,225,0.8),inset_2px_-2px_4px_-1px_rgba(0,0,0,0.8)] ${className}`}>
+        <div className="h-full p-1 bg-slate-300 shadow-[inset_0_0_4px_rgba(0,0,0,0.3)] rounded-sm">
+            {children}
+        </div>
+    </div >
 }

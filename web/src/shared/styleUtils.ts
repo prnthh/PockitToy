@@ -1,15 +1,16 @@
 // Aesthetic color palettes for drawing canvas
 export const colorPalettes = [
-    { bg: '#FDF4E3', stroke: '#8B4513' }, // Warm cream & brown
-    { bg: '#E8F4FD', stroke: '#2C5282' }, // Soft blue & navy
-    { bg: '#F0FDF4', stroke: '#166534' }, // Mint & forest green
-    { bg: '#FEF3F2', stroke: '#B91C1C' }, // Blush & crimson
-    { bg: '#F5F3FF', stroke: '#6B46C1' }, // Lavender & purple
-    { bg: '#FFFBEB', stroke: '#D97706' }, // Honey & amber
-    { bg: '#F0F9FF', stroke: '#0369A1' }, // Sky & ocean blue
-    { bg: '#FDF2F8', stroke: '#BE185D' }, // Rose & magenta
-    { bg: '#ECFDF5', stroke: '#047857' }, // Sage & emerald
-    { bg: '#FEF7ED', stroke: '#EA580C' }, // Peach & orange
+    // Aesthetic pastel backgrounds with contrasting dark strokes
+    { bg: '#FFB3BA', stroke: '#2D3748' }, // pastel pink bg, dark slate stroke
+    { bg: '#BAFFC9', stroke: '#1A202C' }, // pastel green bg, dark gray stroke
+    { bg: '#BAE1FF', stroke: '#2B6CB0' }, // pastel blue bg, dark blue stroke
+    { bg: '#FFFFBA', stroke: '#744210' }, // pastel yellow bg, dark brown stroke
+    { bg: '#E6BAFF', stroke: '#553C9A' }, // pastel purple bg, dark purple stroke
+    { bg: '#BAFFFF', stroke: '#0D4D4D' }, // pastel cyan bg, dark teal stroke
+    { bg: '#FFD1BA', stroke: '#9C4221' }, // pastel peach bg, dark orange stroke
+    { bg: '#C9BAFF', stroke: '#4C1D95' }, // pastel lavender bg, dark purple stroke
+    { bg: '#BAFFDC', stroke: '#065F46' }, // pastel mint bg, dark green stroke
+    { bg: '#FFBAE6', stroke: '#831843' }, // pastel rose bg, dark pink stroke
 ];
 
 // Helper function to get a random color palette
