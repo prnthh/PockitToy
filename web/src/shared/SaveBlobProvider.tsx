@@ -16,55 +16,83 @@ const SaveBlobContext = createContext<SaveBlobContextType>({
 export const useSaveBlob = () => useContext(SaveBlobContext);
 
 export default function SaveBlobProvider({ children }: { children: ReactNode }) {
-    const [data, setData] = useState<Map<string, any>>(new Map());
-    const [isLoaded, setIsLoaded] = useState(false);
-
-    // Simple checksum
-    const checksum = useCallback((str: string) => {
+    // Simple checksum used to detect corrupted/partial writes
+    const checksum = (str: string) => {
         let hash = 0;
         for (let i = 0; i < str.length; i++) {
             hash = ((hash << 5) - hash + str.charCodeAt(i)) & 0xffffffff;
         }
         return hash.toString(36);
-    }, []);
+    };
 
-    // Load on mount
-    useEffect(() => {
-        const stored = localStorage.getItem('reactive-data');
-        if (stored) {
-            try {
+    // Initialize synchronously from localStorage to avoid a mount-time race
+    const [data, setData] = useState<Map<string, any>>(() => {
+        try {
+            const stored = localStorage.getItem('reactive-data');
+            if (stored) {
                 const payload = JSON.parse(stored);
                 if (payload.data && payload.checksum === checksum(payload.data)) {
-                    setData(new Map(Object.entries(JSON.parse(payload.data))));
+                    return new Map(Object.entries(JSON.parse(payload.data)));
                 } else {
                     localStorage.removeItem('reactive-data');
                 }
-            } catch {
-                localStorage.removeItem('reactive-data');
             }
+        } catch {
+            // ignore parse/storage errors and remove the key if possible
+            try { localStorage.removeItem('reactive-data'); } catch { /* ignore */ }
         }
-        setIsLoaded(true);
-    }, [checksum]);
+        return new Map();
+    });
 
-    // Save on change
+    // Loaded synchronously
+    const isLoaded = true;
+
+    // Persist to localStorage whenever data changes
     useEffect(() => {
         if (!isLoaded) return;
-        const dataStr = JSON.stringify(Object.fromEntries(data));
-        const payload = { data: dataStr, checksum: checksum(dataStr) };
-        localStorage.setItem('reactive-data', JSON.stringify(payload));
-    }, [data, isLoaded, checksum]);
+        try {
+            const dataStr = JSON.stringify(Object.fromEntries(data));
+            const payload = { data: dataStr, checksum: checksum(dataStr) };
+            localStorage.setItem('reactive-data', JSON.stringify(payload));
+        } catch {
+            // ignore storage errors (quota, serialization)
+        }
+    }, [data, isLoaded]);
 
     const useData = useCallback(function <T>(key: string, defaultValue: T) {
-        const value = data.get(key) ?? defaultValue;
-        const setValue = useCallback((newValue: T | ((prev: T) => T)) => {
+        const value = (data.get(key) ?? defaultValue) as T;
+        const setValue = (newValue: T | ((prev: T) => T)) => {
             setData(prev => {
-                const current = prev.get(key) ?? defaultValue;
+                const current = (prev.get(key) ?? defaultValue) as T;
                 const final = typeof newValue === 'function' ? (newValue as Function)(current) : newValue;
                 return new Map(prev).set(key, final);
             });
-        }, [key]);
+        };
         return [value, setValue] as const;
     }, [data]);
+
+    // Merge updates from other tabs to avoid clobbering
+    useEffect(() => {
+        const handler = (e: StorageEvent) => {
+            if (e.key !== 'reactive-data' || !e.newValue) return;
+            try {
+                const payload = JSON.parse(e.newValue);
+                if (payload.data && payload.checksum === checksum(payload.data)) {
+                    const incoming = new Map(Object.entries(JSON.parse(payload.data)));
+                    setData(prev => {
+                        // Merge, preferring in-memory values for existing keys
+                        const merged = new Map(incoming);
+                        for (const [k, v] of prev.entries()) merged.set(k, v);
+                        return merged;
+                    });
+                }
+            } catch {
+                // ignore malformed payload
+            }
+        };
+        window.addEventListener('storage', handler);
+        return () => window.removeEventListener('storage', handler);
+    }, []);
 
     return (
         <SaveBlobContext.Provider value={{ useData, isLoaded }}>
