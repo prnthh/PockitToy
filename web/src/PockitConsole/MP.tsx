@@ -331,17 +331,19 @@ export default function MP({ appId = 'pockit.world', roomId, children }: { appId
           {/* Pager nav buttons, simplified */}
           <div className="flex flex-col gap-2 mt-4 mr-3">
             {Object.keys(pages).filter((key) => key !== 'config').map((page) => (
-              <div
-                key={page}
-                className={`${page === currentUIPage ? 'bg-[#ffffffdd]' : 'bg-[#dddddddd]'} hover:scale-102 active:scale-95 transition-all h-5 px-2 cursor-pointer rounded-full shadow active:shadow-sm flex items-center justify-center text-[10px]`}
-                onMouseEnter={() => playSound('/sound/click.mp3')}
-                onPointerDown={() => playSound('/sound/click2.mp3')}
-                onClick={() => {
-                  setCurrentUIPage(page as keyof typeof pages)
-                }}
-              >
-                {page}
-              </div>
+              <ButtonWithFX key={page}>
+                <div
+                  key={page}
+                  className={`${page === currentUIPage ? 'bg-[#ffffffdd]' : 'bg-[#dddddddd]'} hover:scale-102 active:scale-95 transition-all h-5 px-2 cursor-pointer rounded-full shadow active:shadow-sm flex items-center justify-center text-[10px]`}
+                  onMouseEnter={() => playSound('/sound/click.mp3')}
+                  onPointerDown={() => playSound('/sound/click2.mp3')}
+                  onClick={() => {
+                    setCurrentUIPage(page as keyof typeof pages)
+                  }}
+                >
+                  {page}
+                </div>
+              </ButtonWithFX>
             ))}
           </div>
 
@@ -378,28 +380,29 @@ const WalletLock = ({ unlockHint }: { unlockHint: () => void }) => {
 
   return <div className='flex justify-between w-full'>
     <div className={`${walletState.unlocked ? 'bg-green-500' : 'bg-red-500'} h-[50px] w-[30px] rounded-tl-[22px] rounded flex flex-col items-center relative  shadow-[inset_0px_0px_6px_0px_#000000]`}>
-      <div
-        onClick={() => {
-          if (walletState.unlocked) {
-            lock();
-          } else {
-            unlockHint();
-            setTryUnlock(true);
-            setShowPinInput(true);
-          }
-        }}
-        title={walletState.unlocked ? 'Click to lock wallet' : 'Click to unlock wallet'}
-        className={`${walletState.unlocked ? 'top-[2px]' :
-          tryUnlock ? 'top-[6px]' :
-            'top-[calc(100%-32px)]'} 
+      <ButtonWithFX>
+        <div
+          onClick={() => {
+            if (walletState.unlocked) {
+              lock();
+            } else {
+              unlockHint();
+              setTryUnlock(true);
+              setShowPinInput(true);
+            }
+          }}
+          title={walletState.unlocked ? 'Click to lock wallet' : 'Click to unlock wallet'}
+          className={`${walletState.unlocked ? 'top-[2px]' :
+            tryUnlock ? 'top-[6px]' :
+              'top-[calc(100%-32px)]'} 
         relative text-xs flex items-center justify-center pl-0.5 pt-0.5 
         shadow-[0px_0px_3px_0px_#000000,inset_-8px_8px_6px_-8px_#aaaaaa,inset_8px_-8px_6px_-8px_#888888] 
         absolute bg-white transition-all h-[30px] w-[88%] rounded rounded-tl-[21px]`
-        }
-      >
-        {walletState.unlocked ? `🔓` : `🔒`}
-        <VibrateToggleMac />
-      </div>
+          }
+        >
+          {walletState.unlocked ? `🔓` : `🔒`}
+        </div>
+      </ButtonWithFX>
     </div>
     <div className='flex flex-col items-start p-2 grow gap-y-2 w-[10px]'>
       <div className='ml-2 w-[8px] h-[8px] bg-green-500 rounded-full        shadow-[0px_0px_3px_0px_#000000,inset_-1px_1px_0.5px_-1px_#ffffff,inset_1px_-1px_0.5px_-1px_#000000] 
@@ -410,16 +413,26 @@ const WalletLock = ({ unlockHint }: { unlockHint: () => void }) => {
   </div>
 }
 
-const VibrateToggleMac = ({ width = 22, height = 27 }: { width?: number, height?: number }) => {
+const ButtonWithFX = ({ children }: { children: ReactNode }) => {
   const inputRef = useRef<HTMLInputElement>(null);
+  const labelRef = useRef<HTMLLabelElement>(null);
+  const id = useMemo(() => 'toggle-mac-' + Math.random().toString(36).slice(2), []);
   useEffect(() => {
-    if (!inputRef.current) return;
-    inputRef.current.setAttribute('switch', String(true));
-  }, []);
+    if (!inputRef.current || !labelRef.current) return;
+    inputRef.current.setAttribute('switch', '');
+    inputRef.current.style.display = 'none';
+  }, [inputRef, labelRef]);
 
-  return <div className={`fixed opacity-0 select-none fixed overflow-hidden w-[${width}px] h-[${height}px] bg-red-600`}>
-    <input type="checkbox" ref={inputRef} className="w-[200px] h-[200px]" />
-  </div>;
+  return <span className="cursor-pointer flex w-full h-full relative flex-col items-center" onClick={() => {
+    if (navigator.vibrate) navigator.vibrate(10);
+    if (labelRef.current) {
+      labelRef.current.click();
+    }
+  }}>
+    <label className="hidden" htmlFor={id} ref={labelRef} />
+    <input type="checkbox" id={id} ref={inputRef} />
+    {children}
+  </span>;
 }
 
 

@@ -1,5 +1,6 @@
-import { useState, } from "react";
 import { encodeFunctionData, decodeFunctionResult, type Abi, formatEther } from 'viem';
+import { useState } from "react";
+import { CartridgeWrapper } from '@/PockitConsole/carts/MockApps';
 
 
 
@@ -11,7 +12,7 @@ function MockContractReader2({
     contractAddress,
     abi,
     functionName,
-    args
+    args,
 }: {
     contractAddress: `0x${string}`;
     abi: Abi;
@@ -97,44 +98,4 @@ function MockContractReader2({
     );
 }
 
-function Game() {
-    return (
-        <CartridgeWrapper className="bg-red-500 shadow-[inset_-2px_2px_6px_rgba(255,255,255,1),inset_2px_-2px_6px_-1px_rgba(0,0,0,0.8)] rounded-4xl p-2">
-            <span className='text-slate-700 italic text-xl font-bold'>Cheese Blaster</span>
-            <div className="flex flex-col items-center space-x-2">
-            </div>
-        </CartridgeWrapper>
-    );
-}
-
-export default function EthereumCartridgeCarousel() {
-    return <div className='absolute noscrollbar pl-[30vw] bottom-[240px] pb-[30px] overflow-x-auto w-screen flex gap-x-8 pointer-events-none z-[20]'>
-        <MockContractReader2
-            contractAddress={'0x0000000000000000000000000000000000000000'}
-            abi={[
-                {
-                    type: 'function',
-                    name: 'name',
-                    stateMutability: 'view',
-                    inputs: [],
-                    outputs: [{ type: 'string' }],
-                },
-            ]}
-            functionName={'name'}
-        />
-        <Game />
-    </div>
-}
-
-function CartridgeWrapper({ children, className }: { children: React.ReactNode; className?: string }) {
-    return <div className={`relative pointer-events-auto h-[200px] min-w-[200px] max-w-[96vw]  noscrollbar z-[20] ${className}`}>
-        {children}
-
-        {/* ports */}
-        <div className="absolute top-[100%] left-1/2 -translate-x-1/2">
-            <div className="w-[22px] h-[12px] bg-gray-400 rounded-b" />
-        </div>
-    </div >
-}
-
-
+export default MockContractReader2;

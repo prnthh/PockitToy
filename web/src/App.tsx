@@ -7,7 +7,7 @@ import SkyShader from './shared/GLSLCanvas';
 import SaveBlobProvider from './shared/SaveBlobProvider'
 import { lazy, useEffect, useState } from 'react';
 
-const EthereumCartridge = lazy(() => import("./PockitWallet/evm/MockApps"));
+const AppCarousel = lazy(() => import("./PockitConsole/carts/MockApps"));
 
 function App() {
 
@@ -52,7 +52,7 @@ const IframePositionWrapper = ({ children }: { children: React.ReactNode }) => {
   return isInsideIframe ? <div className='z-50 max-w-[400px] h-[220px]'>{children}</div> :
     <>
       <SkyShader />
-      <EthereumCartridge />
+      <AppCarousel />
       <div className={`fixed overflow-hidden w-screen ${isIOSStandalone ? 'h-[calc(100vh+env(safe-area-inset-bottom))]' : 'h-screen'} overflow-none pointer-events-none select-none z-50`}>
         <div className={`fixed transition-all ease-in-out duration-500 ${isInsideIframe ? "h-[220px] w-[400px]" : "h-[220px] w-[92vw] md:w-[400px]"} ${!loaded ? '-bottom-[200px] scale-[90%]' : isIOSStandalone ? 'bottom-4' : isIOS ? 'bottom-4' : 'bottom-2'} left-1/2 -translate-x-1/2 absolute transition-all pointer-events-auto flex flex-col`}>
           {children}
