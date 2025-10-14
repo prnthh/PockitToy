@@ -9,6 +9,7 @@ function Game() {
             <div className="flex flex-col items-center space-x-2 bg-slate-200 w-full grow rounded-xl border shadow-[inset_0px_0px_6px_0px_#000000]">
                 <iframe src={url} className="w-full h-full rounded-xl"></iframe>
             </div>
+            <input type="text" defaultValue={url} onChange={(e) => setUrl(e.target.value)} className="mt-2 p-1 rounded w-full text-sm text-white font-medium" />
         </CartridgeWrapper>
     );
 }
