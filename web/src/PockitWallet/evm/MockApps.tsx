@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, } from "react";
 import { encodeFunctionData, decodeFunctionResult, type Abi, formatEther } from 'viem';
 
 
@@ -71,7 +71,8 @@ function MockContractReader2({
     };
 
     return (
-        <CartridgeWrapper>
+        <CartridgeWrapper className="bg-white shadow-[inset_-2px_2px_6px_rgba(255,255,255,1),inset_2px_-2px_6px_-1px_rgba(0,0,0,0.8)] rounded-4xl p-2">
+
             <div className=" text-xs">
                 <span className='text-slate-700 italic text-xl font-bold'>Ethereum Cartridge</span>
 
@@ -98,19 +99,16 @@ function MockContractReader2({
 
 function Game() {
     return (
-        <CartridgeWrapper className="!bg-red-500">
+        <CartridgeWrapper className="bg-red-500 shadow-[inset_-2px_2px_6px_rgba(255,255,255,1),inset_2px_-2px_6px_-1px_rgba(0,0,0,0.8)] rounded-4xl p-2">
             <span className='text-slate-700 italic text-xl font-bold'>Cheese Blaster</span>
-
             <div className="flex flex-col items-center space-x-2">
-
-                amazing tek
             </div>
         </CartridgeWrapper>
     );
 }
 
 export default function EthereumCartridgeCarousel() {
-    return <div className='absolute left-1/2 -translate-x-1/2 w-screen flex justify-center bottom-[300px] gap-x-8 pointer-events-none z-[20]'>
+    return <div className='absolute noscrollbar pl-[30vw] bottom-[240px] pb-[30px] overflow-x-auto w-screen flex gap-x-8 pointer-events-none z-[20]'>
         <MockContractReader2
             contractAddress={'0x0000000000000000000000000000000000000000'}
             abi={[
@@ -129,9 +127,14 @@ export default function EthereumCartridgeCarousel() {
 }
 
 function CartridgeWrapper({ children, className }: { children: React.ReactNode; className?: string }) {
-    return <div className={`pointer-events-auto h-[200px] overflow-y-auto noscrollbar bottom-[300px] z-[20] bg-white rounded-2xl p-4 shadow-[inset_-2px_2px_4px_rgba(225,225,225,0.8),inset_2px_-2px_4px_-1px_rgba(0,0,0,0.8)] ${className}`}>
-        <div className="h-full p-1 bg-slate-300 shadow-[inset_0_0_4px_rgba(0,0,0,0.3)] rounded-sm">
-            {children}
+    return <div className={`relative pointer-events-auto h-[200px] min-w-[200px] max-w-[96vw]  noscrollbar z-[20] ${className}`}>
+        {children}
+
+        {/* ports */}
+        <div className="absolute top-[100%] left-1/2 -translate-x-1/2">
+            <div className="w-[22px] h-[12px] bg-gray-400 rounded-b" />
         </div>
     </div >
 }
+
+

@@ -392,12 +392,13 @@ const WalletLock = ({ unlockHint }: { unlockHint: () => void }) => {
         className={`${walletState.unlocked ? 'top-[2px]' :
           tryUnlock ? 'top-[6px]' :
             'top-[calc(100%-32px)]'} 
-        text-xs flex items-center justify-center pl-0.5 pt-0.5 
+        relative text-xs flex items-center justify-center pl-0.5 pt-0.5 
         shadow-[0px_0px_3px_0px_#000000,inset_-8px_8px_6px_-8px_#aaaaaa,inset_8px_-8px_6px_-8px_#888888] 
         absolute bg-white transition-all h-[30px] w-[88%] rounded rounded-tl-[21px]`
         }
       >
         {walletState.unlocked ? `🔓` : `🔒`}
+        <VibrateToggleMac />
       </div>
     </div>
     <div className='flex flex-col items-start p-2 grow gap-y-2 w-[10px]'>
@@ -407,6 +408,18 @@ const WalletLock = ({ unlockHint }: { unlockHint: () => void }) => {
 '></div>
     </div>
   </div>
+}
+
+const VibrateToggleMac = ({ width = 22, height = 27 }: { width?: number, height?: number }) => {
+  const inputRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (!inputRef.current) return;
+    inputRef.current.setAttribute('switch', String(true));
+  }, []);
+
+  return <div className={`fixed opacity-0 select-none fixed overflow-hidden w-[${width}px] h-[${height}px] bg-red-600`}>
+    <input type="checkbox" ref={inputRef} className="w-[200px] h-[200px]" />
+  </div>;
 }
 
 
