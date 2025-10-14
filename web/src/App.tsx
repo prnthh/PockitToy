@@ -12,17 +12,17 @@ const AppCarousel = lazy(() => import("./PockitConsole/carts/MockApps"));
 function App() {
 
   return (
-    <IframePositionWrapper>
-      <AudioProvider>
-        <SaveBlobProvider>
-          <ToyWalletProvider>
-            <EVMWrapper>
+    <AudioProvider>
+      <SaveBlobProvider>
+        <ToyWalletProvider>
+          <EVMWrapper>
+            <IframePositionWrapper>
               <PockitToy roomId='my-room-id' />
-            </EVMWrapper>
-          </ToyWalletProvider>
-        </SaveBlobProvider>
-      </AudioProvider>
-    </IframePositionWrapper>
+            </IframePositionWrapper >
+          </EVMWrapper>
+        </ToyWalletProvider>
+      </SaveBlobProvider>
+    </AudioProvider>
   )
 }
 

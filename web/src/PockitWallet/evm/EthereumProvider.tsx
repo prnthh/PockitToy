@@ -8,14 +8,37 @@ export interface EthereumProvider {
     chainId?: string; //-->suggested by EIP-1193
 }
 
-import React, { useEffect, useRef } from 'react';
+// bad news: this will not replace window.ethereum in all contexts (e.g. iframes) due to CSP restrictions.
+// this can only be fixed by the child page handling messages from the parent context or by using a browser extension.
+// but it will work in most cases, and we also set window.pockit and window.walletRouter for direct access.
+
+import React, { useEffect, useRef, useState } from 'react';
 import { privateKeyToAccount } from 'viem/accounts';
 import { sepolia, mainnet } from 'viem/chains';
+import { createWalletClient, createPublicClient, http } from 'viem';
 import { useToyWallet } from '../ToyWalletProvider';
+import { announceProvider } from 'mipd';
+
+const EthereumContext = React.createContext<{ provider: EthereumProvider | null; client: any; chainId: string; setChainId: (id: string) => void } | null>(null);
+
+export const useEthereum = () => {
+    const context = React.useContext(EthereumContext);
+    if (!context) throw new Error('useEthereum must be used within EthereumProvider');
+    return context;
+};
 
 declare global {
     interface Window {
         ethereum?: EthereumProvider | undefined;
+        pockit?: EthereumProvider;
+        walletRouter?: {
+            pockitProvider: EthereumProvider;
+            lastInjectedProvider?: EthereumProvider;
+            currentProvider: EthereumProvider;
+            providers: EthereumProvider[];
+            setDefaultProvider: (pockitAsDefault: boolean) => void;
+            addProvider: (provider: EthereumProvider) => void;
+        };
     }
 }
 
@@ -41,11 +64,11 @@ export interface EthereumProviderProps {
 }
 
 // Minimal mock provider implementation that follows EIP-1193-ish surface.
-function createViemBackedProvider(opts?: {
+async function createViemBackedProvider(opts?: {
     rpcUrl?: string;
     initialChainId?: string;
     wallet?: EthereumProviderProps['wallet'];
-}) {
+}): Promise<{ provider: EthereumProvider; client: any }> {
     const rpcUrl = opts?.rpcUrl ?? 'https://eth.llamarpc.com';
     const wallet = opts?.wallet;
 
@@ -55,128 +78,63 @@ function createViemBackedProvider(opts?: {
     // default chainId uses provided initialChainId or selected chain
     let chainId = opts?.initialChainId ?? `0x${chain.id.toString(16)}`;
 
-    const listeners = new Map<string, Set<(...args: any[]) => void>>();
+    const publicClient = createPublicClient({
+        chain,
+        transport: http(rpcUrl)
+    });
 
-    function emit(eventName: string, ...args: any[]) {
-        const set = listeners.get(eventName);
-        if (!set) return;
-        for (const fn of Array.from(set)) {
-            try {
-                fn(...args);
-            } catch (err) {
-                // eslint-disable-next-line no-console
-                console.error('ethereum provider listener error', err);
-            }
+    if (wallet?.getPrivateKey) {
+        // Create and return viem wallet client directly, with custom overrides for pockit methods
+        const key = await wallet.getPrivateKey();
+        if (key) {
+            const account = privateKeyToAccount(key);
+            const walletClient = createWalletClient({
+                account,
+                chain,
+                transport: http(rpcUrl)
+            });
+
+            // Add custom properties
+            (walletClient as any).isPockit = true;
+            (walletClient as any).isMetaMask = false;
+            (walletClient as any).isCoinbaseWallet = false;
+            (walletClient as any).chainId = chainId;
+
+            // Override request to handle custom pockit methods
+            const originalRequest = (walletClient as any).request.bind(walletClient);
+            (walletClient as any).request = async ({ method, params }: { method: string; params?: unknown[] }) => {
+                if (method === 'pockit_seal') {
+                    const p = params as any[] | undefined;
+                    const message = p && p[0] ? String(p[0]) : '';
+                    const target = p && p[1] ? String(p[1]) : '';
+                    const useIdentity = !!(p && p[2]);
+                    if (wallet?.handleSeal) {
+                        return await wallet.handleSeal(message, target, useIdentity);
+                    }
+                    return Promise.reject(new Error('no wallet available to seal'));
+                } else if (method === 'pockit_unseal') {
+                    const p = params as any[] | undefined;
+                    const sealed = p && p[0] ? String(p[0]) : '';
+                    if (wallet?.handleUnseal) {
+                        return await wallet.handleUnseal(sealed);
+                    }
+                    return Promise.reject(new Error('no wallet available to unseal'));
+                } else {
+                    return originalRequest({ method: method as any, params: params as any });
+                }
+            };
+
+            return { provider: walletClient as EthereumProvider, client: walletClient };
         }
     }
 
-    const provider: EthereumProvider & { __pockit?: boolean; isPockit?: boolean; providers?: EthereumProvider[]; providerMap?: Record<string, EthereumProvider> } = {
-        // Generic flags — avoid wallet-specific branding
-        isMetaMask: false,
-        isCoinbaseWallet: false,
-        isPockit: true,
-        chainId,
-        request: async ({ method, params }: { method: string; params?: unknown[] }) => {
-            // Handle account/signing RPCs via toy wallet when available;
-            // otherwise forward RPCs to the network via viem public client.
-            switch (method) {
-                case 'eth_accounts':
-                    if (wallet?.getPrivateKey) {
-                        const key = await wallet.getPrivateKey();
-                        if (key) {
-                            const acct = privateKeyToAccount(key);
-                            return [acct.address];
-                        }
-                        return [];
-                    }
-                    return [];
-                case 'eth_chainId':
-                    return chainId;
-                case 'eth_requestAccounts':
-                    if (wallet?.getPrivateKey) {
-                        const key = await wallet.getPrivateKey();
-                        if (key) {
-                            const acct = privateKeyToAccount(key);
-                            const arr = [acct.address];
-                            emit('accountsChanged', arr.slice());
-                            return arr;
-                        }
-                        return [];
-                    }
-                    return [];
-                case 'personal_sign':
-                case 'eth_sign':
-                    try {
-                        const p = params as any[] | undefined;
-                        const message = p && p[0] ? String(p[0]) : '';
-                        if (wallet?.handleSign) {
-                            const res = await wallet.handleSign(message);
-                            if (res && res.s) return res.s;
-                        }
-                        return Promise.reject(new Error('no wallet available to sign'));
-                    } catch (err) {
-                        return Promise.reject(err);
-                    }
-                case 'pockit_seal':
-                    try {
-                        const p = params as any[] | undefined;
-                        const message = p && p[0] ? String(p[0]) : '';
-                        const target = p && p[1] ? String(p[1]) : '';
-                        const useIdentity = !!(p && p[2]);
-                        if (wallet?.handleSeal) {
-                            return await wallet.handleSeal(message, target, useIdentity);
-                        }
-                        return Promise.reject(new Error('no wallet available to seal'));
-                    } catch (err) {
-                        return Promise.reject(err);
-                    }
-                case 'pockit_unseal':
-                    try {
-                        const p = params as any[] | undefined;
-                        const sealed = p && p[0] ? String(p[0]) : '';
-                        if (wallet?.handleUnseal) {
-                            return await wallet.handleUnseal(sealed);
-                        }
-                        return Promise.reject(new Error('no wallet available to unseal'));
-                    } catch (err) {
-                        return Promise.reject(err);
-                    }
-                case 'wallet_switchEthereumChain':
-                    // We do not change the underlying RPC here — ask the caller to recreate provider with desired rpcUrl.
-                    return Promise.reject(new Error('wallet_switchEthereumChain not supported by this provider; recreate provider with appropriate rpcUrl'));
-                default:
-                    // Forward other JSON-RPC methods to the network using a direct JSON-RPC POST to rpcUrl
-                    try {
-                        const body = JSON.stringify({ jsonrpc: '2.0', id: 1, method, params: params ?? [] });
-                        const resp = await fetch(rpcUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body });
-                        const json = await resp.json();
-                        if (json.error) return Promise.reject(new Error(json.error.message || JSON.stringify(json.error)));
-                        return json.result;
-                    } catch (err) {
-                        return Promise.reject(err);
-                    }
-            }
-        },
-        on: (eventName: string, listener: (...args: any[]) => void) => {
-            let set = listeners.get(eventName);
-            if (!set) {
-                set = new Set();
-                listeners.set(eventName, set);
-            }
-            set.add(listener);
-        },
-        removeListener: (eventName: string, listener: (...args: any[]) => void) => {
-            const set = listeners.get(eventName);
-            if (!set) return;
-            set.delete(listener);
-            if (set.size === 0) listeners.delete(eventName);
-        },
-    };
+    // Fallback read-only provider using public client
+    (publicClient as any).isPockit = true;
+    (publicClient as any).isMetaMask = false;
+    (publicClient as any).isCoinbaseWallet = false;
+    (publicClient as any).chainId = chainId;
 
-    // mark provider so we can detect it in the page
-    (provider as any).__pockit = true;
-
-    return provider;
+    return { provider: publicClient as EthereumProvider, client: publicClient };
 }
 
 /**
@@ -185,55 +143,90 @@ function createViemBackedProvider(opts?: {
  * On unmount it restores the previous value of window.ethereum.
  */
 export default function EthereumProvider(props: EthereumProviderProps) {
-    const { children, force = false, initialChainId, wallet, rpcUrl } = props;
+    const { children, force = true, initialChainId, wallet, rpcUrl } = props;
     const originalRef = useRef<EthereumProvider | undefined>(undefined);
+    const [chainId, setChainId] = useState(initialChainId || '0x1');
+    const [provider, setProvider] = useState<EthereumProvider | null>(null);
+    const [client, setClient] = useState<any>(null);
 
     useEffect(() => {
         // save original
         originalRef.current = window.ethereum;
 
-        if (window.ethereum && !force) {
-            // do not override an existing provider
-            // eslint-disable-next-line no-console
-            console.warn('window.ethereum already present — not overriding (pass force=true to override)');
-            return () => {
-                // nothing to cleanup because we didn't set
+        (async () => {
+            const { provider: ethProvider, client: viemClient } = await createViemBackedProvider({ rpcUrl, initialChainId: chainId, wallet });
+            setProvider(ethProvider);
+            setClient(viemClient);
+
+            // Announce the provider
+            announceProvider({
+                info: {
+                    icon: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIHZpZXdCb3g9IjAgMCAzMiAzMiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjMyIiBoZWlnaHQ9IjMyIiByeD0iOCIgZmlsbD0iIzAwMEZGRiIvPgo8L3N2Zz4=', // TODO: add proper icon
+                    name: 'Pockit',
+                    rdns: 'me.pockit',
+                    uuid: crypto.randomUUID(),
+                },
+                provider: ethProvider as any, // assuming it matches EIP1193Provider
+            });
+
+            // Set up window properties
+            window.pockit = ethProvider;
+
+            window.walletRouter = {
+                pockitProvider: ethProvider,
+                lastInjectedProvider: originalRef.current,
+                currentProvider: ethProvider,
+                providers: [ethProvider, ...(originalRef.current ? [originalRef.current] : [])],
+                setDefaultProvider: (pockitAsDefault: boolean) => {
+                    if (pockitAsDefault) {
+                        window.walletRouter!.currentProvider = window.pockit!;
+                    } else {
+                        const nonDefault = window.walletRouter!.lastInjectedProvider ?? (window.ethereum as EthereumProvider);
+                        window.walletRouter!.currentProvider = nonDefault;
+                    }
+                },
+                addProvider: (prov: EthereumProvider) => {
+                    if (!window.walletRouter!.providers.includes(prov)) {
+                        window.walletRouter!.providers.push(prov);
+                    }
+                    if (ethProvider !== prov) {
+                        window.walletRouter!.lastInjectedProvider = prov;
+                    }
+                },
             };
-        }
 
-        const provider = createViemBackedProvider({ rpcUrl, initialChainId, wallet });
-        // If an existing provider was present and we're forcing override, try to coexist.
-        // Some wallets (Coinbase) expect window.ethereum.providers/providerMap to list multiple providers.
-        if (force && originalRef.current) {
-            try {
-                const existing = originalRef.current as any;
-                // Compose a providers array with the original and our new provider.
-                provider.providers = [existing, provider];
+            // Define window.ethereum as getter/setter
+            Object.defineProperties(window, {
+                ethereum: {
+                    get() {
+                        return window.walletRouter?.currentProvider;
+                    },
+                    set(newProvider) {
+                        window.walletRouter?.addProvider(newProvider);
+                    },
+                    configurable: true,
+                },
+            });
 
-                // Build a minimal providerMap. Prefer any existing providerMap entries.
-                const map: Record<string, EthereumProvider> = {};
-                if (existing && typeof existing === 'object') {
-                    // Attempt to pick a human-friendly name from known flags.
-                    const name = existing.isMetaMask ? 'MetaMask' : existing.isCoinbaseWallet ? 'Coinbase' : 'External';
-                    map[name] = existing;
-                }
-                map.Pockit = provider;
-                provider.providerMap = map;
-            } catch (e) {
-                // ignore failures — best-effort only
-            }
-        }
+            // Set providers on the provider
+            window.pockit!.providers = window.walletRouter.providers;
 
-        // install the viem-backed provider
-        window.ethereum = provider;
+            // Dispatch initialized event
+            window.dispatchEvent(new Event('ethereum#initialized'));
+        })();
 
         return () => {
-            // restore original provider
-            window.ethereum = originalRef.current;
+            // restore original
+            if (originalRef.current) {
+                window.ethereum = originalRef.current;
+            } else {
+                delete window.ethereum;
+            }
+            // Clean up
+            delete window.pockit;
+            delete window.walletRouter;
         };
-    }, [force, initialChainId, wallet, rpcUrl]);
-
-    return <>{children}</>;
+    }, [force, chainId, wallet, rpcUrl]); return <EthereumContext.Provider value={{ provider, client, chainId, setChainId }}>{children}</EthereumContext.Provider>;
 }
 
 
