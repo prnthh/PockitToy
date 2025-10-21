@@ -55,7 +55,7 @@ export interface EthereumProviderProps {
     /** Optional subset of ToyWallet functions — pass `useToyWallet()` result from a parent to enable real wallet operations */
     wallet?: {
         account?: string | null;
-        getPrivateKey: () => Promise<`0x${string}` | null>;
+        getPrivateKey: () => Promise<`0x${string}`>;
         handleSign?: (message: string) => Promise<{ m: any; s: string; f: string } | null>;
         handleSeal?: (message: string, targetPublicKey: string, useIdentityMode: boolean) => Promise<string>;
         handleUnseal?: (sealedMessage: string) => Promise<{ message: string; from?: string } | null>;
@@ -86,9 +86,8 @@ async function createViemBackedProvider(opts?: {
 
     if (wallet?.getPrivateKey) {
         // Create and return viem wallet client directly, with custom overrides for pockit methods
-        const key = await wallet.getPrivateKey();
-        if (key) {
-            const account = privateKeyToAccount(key);
+        try {
+            const account = privateKeyToAccount(await wallet.getPrivateKey());
             const walletClient = createWalletClient({
                 account,
                 chain,
@@ -127,6 +126,8 @@ async function createViemBackedProvider(opts?: {
             };
 
             return { provider: walletClient as EthereumProvider, client: walletClient };
+        } catch (e) {
+            console.error('Failed to create wallet client:', e);
         }
     }
 

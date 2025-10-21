@@ -130,7 +130,7 @@ async function sealMessage(
 
 async function unsealMessage(
     sealedMessage: string,
-    getPrivateKey: () => Promise<`0x${string}` | null>
+    getPrivateKey: () => Promise<`0x${string}`>
 ): Promise<UnsealedMessage> {
     const myPrivateKeyHex = await getPrivateKey();
     if (!myPrivateKeyHex) {
@@ -256,11 +256,14 @@ async function saveEncryptedKey(privateKeyHex: `0x${string}`, pin: string) {
     localStorage.setItem('wallet', encrypted);
 }
 
-async function loadDecryptedKey(pin: string): Promise<`0x${string}` | null> {
+async function loadDecryptedKey(pin: string): Promise<`0x${string}`> {
     const stored = localStorage.getItem('wallet');
-    if (!stored) return null;
+    if (!stored) throw new Error('No wallet found');
 
-    return await decryptPrivateKey(stored, pin);
+    const key = await decryptPrivateKey(stored, pin);
+    if (!key) throw new Error('Failed to decrypt wallet');
+
+    return key;
 }
 
 function keyExists(): boolean {
@@ -292,7 +295,7 @@ export function ToyWalletProvider({ children }: { children: ReactNode }) {
     }, []);
 
     // Helper to get private key when needed
-    const getPrivateKey = async (): Promise<`0x${string}` | null> => {
+    const getPrivateKey = async (): Promise<`0x${string}`> => {
         if (!unlocked || !currentPin) throw new Error('Wallet is locked');
         return await loadDecryptedKey(currentPin);
     };
