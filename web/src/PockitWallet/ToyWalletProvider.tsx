@@ -3,6 +3,9 @@ import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import { hexToBytes, verifyMessage } from "viem";
 import * as secp from '@noble/secp256k1';
 import ToyWalletDebug from './ToyWalletDebug';
+import localforage from 'localforage';
+
+// (no global cache) provider will maintain a synchronous keyExists() via state
 
 // ==================== TYPES ====================
 interface UnsealedMessage {
@@ -253,22 +256,26 @@ async function decryptPrivateKey(encryptedData: string, pin: string): Promise<`0
 
 async function saveEncryptedKey(privateKeyHex: `0x${string}`, pin: string) {
     const encrypted = await encryptPrivateKey(privateKeyHex, pin);
-    localStorage.setItem('wallet', encrypted);
+    // Persist using localforage (IndexedDB preferred).
+    try {
+        await localforage.setItem('wallet', encrypted);
+    } catch {
+        // ignore
+    }
 }
 
 async function loadDecryptedKey(pin: string): Promise<`0x${string}` | null> {
-    const stored = localStorage.getItem('wallet');
-    if (!stored) return null;
-
-    return await decryptPrivateKey(stored, pin);
+    try {
+        const stored = await localforage.getItem<string>('wallet');
+        if (!stored) return null;
+        return await decryptPrivateKey(stored, pin);
+    } catch {
+        return null;
+    }
 }
 
-function keyExists(): boolean {
-    return !!localStorage.getItem('wallet');
-}
-
-function removeKey() {
-    localStorage.removeItem('wallet');
+async function removeKey() {
+    try { await localforage.removeItem('wallet'); } catch { /* ignore */ }
 }
 
 // ==================== PROVIDER IMPLEMENTATION ====================
@@ -279,16 +286,17 @@ export function ToyWalletProvider({ children }: { children: ReactNode }) {
     const [publicKey, setPublicKey] = useState('');
     const [showPinInput, setShowPinInput] = useState(false);
     const [error, setError] = useState('');
-    // Ensure wallet is locked if there is no stored key on mount and when storage changes
+    const [hasStoredKey, setHasStoredKey] = useState(false);
     useEffect(() => {
-        if (!keyExists()) lock();
-        const handler = (e: StorageEvent) => {
-            if (e.key === 'wallet' && e.newValue === null) {
-                lock();
-            }
-        };
-        window.addEventListener('storage', handler);
-        return () => window.removeEventListener('storage', handler);
+        let mounted = true;
+        localforage.getItem('wallet').then((res) => {
+            if (!mounted) return;
+            setHasStoredKey(!!res);
+            if (!res) lock();
+        }).catch(() => {
+            lock();
+        });
+        return () => { mounted = false; };
     }, []);
 
     // Helper to get private key when needed
@@ -304,7 +312,7 @@ export function ToyWalletProvider({ children }: { children: ReactNode }) {
         }
 
         setError('');
-        const walletExists = keyExists();
+        const walletExists = hasStoredKey;
         let key = await loadDecryptedKey(pin);
 
         if (!key && !walletExists) {
@@ -326,6 +334,7 @@ export function ToyWalletProvider({ children }: { children: ReactNode }) {
             setPublicKey(pubKey);
             setUnlocked(true);
             setShowPinInput(false);
+            setHasStoredKey(true);
         }
     };
 
@@ -415,6 +424,7 @@ export function ToyWalletProvider({ children }: { children: ReactNode }) {
     const handleReset = () => {
         removeKey();
         lock();
+        setHasStoredKey(false);
     };
 
     const copyAddress = async () => {
@@ -440,6 +450,7 @@ export function ToyWalletProvider({ children }: { children: ReactNode }) {
             const newPin = prompt('Enter a 4-digit PIN:');
             if (!newPin || newPin.length !== 4 || !/^\d{4}$/.test(newPin)) throw new Error('Invalid PIN');
             await saveEncryptedKey(key as `0x${string}`, newPin);
+            setHasStoredKey(true);
 
             setError('');
         } catch (err: any) {
@@ -470,7 +481,7 @@ export function ToyWalletProvider({ children }: { children: ReactNode }) {
         handleFileSelect,
         setShowPinInput,
         setError,
-        keyExists
+        keyExists: () => hasStoredKey
     };
 
     return (
@@ -497,7 +508,8 @@ export function ToyWallet() {
         lock,
         copyPublicKey,
         setShowPinInput,
-        setError
+        setError,
+        keyExists
     } = useToyWallet();
 
     const { unlocked, publicKey, showPinInput, error } = walletState;

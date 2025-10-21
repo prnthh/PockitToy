@@ -1,101 +1,79 @@
 "use client";
 
-import { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import { createContext, useContext, useState, useEffect } from 'react';
 import type { ReactNode } from 'react';
+import localforage from 'localforage';
 
 interface SaveBlobContextType {
-    useData: <T>(key: string, defaultValue: T) => readonly [T, (data: T | ((prev: T) => T)) => void];
+    data: Record<string, any>;
+    // direct stores
+    profile: Record<string, any>;
+    setProfile: React.Dispatch<React.SetStateAction<Record<string, any>>>;
+    addressBook: Record<string, any>;
+    setAddressBook: React.Dispatch<React.SetStateAction<Record<string, any>>>;
     isLoaded: boolean;
 }
 
 const SaveBlobContext = createContext<SaveBlobContextType>({
-    useData: () => [null as any, () => { }],
+    data: {},
+    profile: {},
+    setProfile: () => { },
+    addressBook: {},
+    setAddressBook: () => { },
     isLoaded: false,
 });
 
 export const useSaveBlob = () => useContext(SaveBlobContext);
 
 export default function SaveBlobProvider({ children }: { children: ReactNode }) {
-    // Simple checksum used to detect corrupted/partial writes
-    const checksum = (str: string) => {
-        let hash = 0;
-        for (let i = 0; i < str.length; i++) {
-            hash = ((hash << 5) - hash + str.charCodeAt(i)) & 0xffffffff;
-        }
-        return hash.toString(36);
-    };
+    // create separate stores for profile and addressBook
+    const profileStore = localforage.createInstance({ name: 'pockit_store', storeName: 'profile' });
+    const addressStore = localforage.createInstance({ name: 'pockit_store', storeName: 'addressBook' });
 
-    // Initialize synchronously from localStorage to avoid a mount-time race
-    const [data, setData] = useState<Map<string, any>>(() => {
-        try {
-            const stored = localStorage.getItem('reactive-data');
-            if (stored) {
-                const payload = JSON.parse(stored);
-                if (payload.data && payload.checksum === checksum(payload.data)) {
-                    return new Map(Object.entries(JSON.parse(payload.data)));
-                } else {
-                    localStorage.removeItem('reactive-data');
-                }
-            }
-        } catch {
-            // ignore parse/storage errors and remove the key if possible
-            try { localStorage.removeItem('reactive-data'); } catch { /* ignore */ }
-        }
-        return new Map();
-    });
+    // state starts empty; we'll load from async storage on mount
+    const [profile, setProfile] = useState<Record<string, any>>({});
+    const [addressBook, setAddressBook] = useState<Record<string, any>>({});
+    const [isLoaded, setIsLoaded] = useState(false);
 
-    // Loaded synchronously
-    const isLoaded = true;
-
-    // Persist to localStorage whenever data changes
+    // Load both stores once on mount
     useEffect(() => {
-        if (!isLoaded) return;
-        try {
-            const dataStr = JSON.stringify(Object.fromEntries(data));
-            const payload = { data: dataStr, checksum: checksum(dataStr) };
-            localStorage.setItem('reactive-data', JSON.stringify(payload));
-        } catch {
-            // ignore storage errors (quota, serialization)
-        }
-    }, [data, isLoaded]);
-
-    const useData = useCallback(function <T>(key: string, defaultValue: T) {
-        const value = (data.get(key) ?? defaultValue) as T;
-        const setValue = (newValue: T | ((prev: T) => T)) => {
-            setData(prev => {
-                const current = (prev.get(key) ?? defaultValue) as T;
-                const final = typeof newValue === 'function' ? (newValue as Function)(current) : newValue;
-                return new Map(prev).set(key, final);
-            });
-        };
-        return [value, setValue] as const;
-    }, [data]);
-
-    // Merge updates from other tabs to avoid clobbering
-    useEffect(() => {
-        const handler = (e: StorageEvent) => {
-            if (e.key !== 'reactive-data' || !e.newValue) return;
+        let mounted = true;
+        const load = async () => {
             try {
-                const payload = JSON.parse(e.newValue);
-                if (payload.data && payload.checksum === checksum(payload.data)) {
-                    const incoming = new Map(Object.entries(JSON.parse(payload.data)));
-                    setData(prev => {
-                        // Merge, preferring in-memory values for existing keys
-                        const merged = new Map(incoming);
-                        for (const [k, v] of prev.entries()) merged.set(k, v);
-                        return merged;
-                    });
-                }
-            } catch {
-                // ignore malformed payload
+                const [p, a] = await Promise.all([
+                    profileStore.getItem<Record<string, any>>('value'),
+                    addressStore.getItem<Record<string, any>>('value')
+                ]);
+                if (!mounted) return;
+                if (p && typeof p === 'object') setProfile(p as Record<string, any>);
+                if (a && typeof a === 'object') setAddressBook(a as Record<string, any>);
+            } catch (e) {
+                // ignore
+            } finally {
+                if (mounted) setIsLoaded(true);
             }
         };
-        window.addEventListener('storage', handler);
-        return () => window.removeEventListener('storage', handler);
+        load();
+        return () => { mounted = false; };
     }, []);
 
+    // Persist profile
+    useEffect(() => {
+        if (!isLoaded) return;
+        profileStore.setItem('value', profile).catch(() => { /* ignore */ });
+    }, [profile, isLoaded]);
+
+    // Persist address book
+    useEffect(() => {
+        if (!isLoaded) return;
+        addressStore.setItem('value', addressBook).catch(() => { /* ignore */ });
+    }, [addressBook, isLoaded]);
+
+    // Composite data view for compatibility with existing code that expects { profile, addressBook }
+    const data = { profile, addressBook };
+
     return (
-        <SaveBlobContext.Provider value={{ useData, isLoaded }}>
+        <SaveBlobContext.Provider value={{ data, profile, setProfile, addressBook, setAddressBook, isLoaded }}>
             {children}
         </SaveBlobContext.Provider>
     );

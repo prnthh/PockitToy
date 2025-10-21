@@ -16,8 +16,7 @@ type Contact = {
 
 export default function PeerList({ sendChat }: { sendChat: (msg: string, peer?: string) => void }) {
     const { peerStates, room } = useContext(MPContext);
-    const { useData, isLoaded } = useSaveBlob();
-    const [addressBook, setAddressBook] = useData('addressBook', {} as Record<string, { name: string, addedAt: string, publicKey?: string }>);
+    const { addressBook, setAddressBook, isLoaded } = useSaveBlob();
     const [selected, setSelected] = useState<string | null>(null);
     const [dmTarget, setDmTarget] = useState<string | null>(null);
     const [dmInput, setDmInput] = useState('');

@@ -7,8 +7,10 @@ export default function ProfilePage({ myState, setMyState, sendPlayerState }: {
     setMyState: React.Dispatch<React.SetStateAction<{ position: [number, number, number], profile: { [key: string]: any } }>>,
     sendPlayerState: (state: { position: [number, number, number], profile: { [key: string]: any } }) => void
 }) {
-    const { useData } = useSaveBlob();
-    const [, setSavedProfile] = useData('profile', {});
+    const { setProfile } = useSaveBlob();
+    const setSavedProfile = useCallback((newProfile: { [key: string]: any }) => {
+        setProfile(newProfile);
+    }, [setProfile]);
     const { walletState } = useToyWallet();
 
     const updateProfile = useCallback((key: string, value: any) => {
