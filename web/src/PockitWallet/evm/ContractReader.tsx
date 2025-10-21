@@ -75,7 +75,7 @@ function MockContractReader2({
         <CartridgeWrapper className="bg-white shadow-[inset_-2px_2px_6px_rgba(255,255,255,1),inset_2px_-2px_6px_-1px_rgba(0,0,0,0.8)] rounded-4xl p-2">
 
             <div className=" text-xs">
-                <span className='text-slate-700 italic text-xl font-bold'>Ethereum Cartridge</span>
+                <span className='text-slate-700 italic text-xl font-bold'>Contract Reader Cartridge</span>
 
                 <div>Contract: {contractAddress}</div>
                 <div>Method: {functionName}</div>

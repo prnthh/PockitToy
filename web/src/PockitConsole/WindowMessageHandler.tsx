@@ -1,17 +1,27 @@
 import { useEffect } from "react";
 
-export default function WindowMessageHandler() {
+export default function WindowMessageHandler(
+    { sendChat }: { sendChat?: (message: string) => void }
+) {
     // const [knownOrigins, setKnownOrigins] = ['https://pockit.world', 'https://draw.pockit.world', "*"];
     // use this component to bridge window.ethereum calls from the parent to our own ethereum provider.
     useEffect(() => {
         function handleMessage(event: MessageEvent) {
             const { type, payload, source } = event.data;
-            if (source !== window.parent) return; // only accept messages from the parent window
+            if (source !== window.parent) {
+                // return; // only accept messages from the parent window
+            }
             console.log('Received message:', event);
 
             if (type === 'CUSTOM_EVENT') {
                 console.log('Received CUSTOM_EVENT with payload:', payload);
                 // Handle the custom event
+            } else if (type === 'POCKIT_CHAT') {
+                console.log('Received POCKIT_CHAT with payload:', payload);
+                if (sendChat && payload?.message) {
+                    sendChat(payload.message);
+                }
+                // Handle the POCKIT_CHAT event
             } else if (type === 'ping') {
                 console.log('Received ping, sending pong');
                 window.parent.postMessage({ type: 'pong' }, '*');

@@ -304,7 +304,7 @@ export default function MP({ appId = 'pockit.world', roomId, children }: { appId
   return (
     <MPContext.Provider value={{ room, peerStates, myState }}>
       {children}
-      <WindowMessageHandler />
+      <WindowMessageHandler sendChat={sendChat} />
       <div
         className={`w-full h-full flex flex-row items-center -[2.2rem] text-black p-3 font-sans `}
       >

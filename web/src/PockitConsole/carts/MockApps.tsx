@@ -2,6 +2,7 @@ import { useRef, useEffect } from "react";
 import MockContractReader2 from "@/PockitWallet/evm/ContractReader";
 import Game from "./TestGame";
 import DMTDex from "@/PockitWallet/evm/DMTDex";
+import TaskSignal from "@/PockitWallet/evm/TaskSignal";
 
 
 
@@ -80,7 +81,7 @@ export default function EthereumCartridgeCarousel() {
             className='h-[calc(100vh-240px-30px)] items-end justify-start pl-[200px] overflow-x-scroll noscrollbar bottom-[240px] pb-[30px] overflow-x-auto flex gap-x-8 z-[20]'
             style={{ scrollSnapType: 'x mandatory' }}
         >
-            {[<Game />, <DMTDex />, <MockContractReader2
+            {[<Game />, <TaskSignal />, <DMTDex />, <MockContractReader2
                 contractAddress={'0x0000000000000000000000000000000000000000'}
                 abi={[
                     {
