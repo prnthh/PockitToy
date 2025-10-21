@@ -164,7 +164,7 @@ export default function MP({ appId = 'pockit.world', roomId, children }: { appId
       sendPlayerState(signedState, peer);
     })
 
-  }, [sendPlayerState])
+  }, [sendPlayerState, trySignState])
 
   const handlePeerLeave = useCallback((peer: string) => {
     setPeerStates(states => {

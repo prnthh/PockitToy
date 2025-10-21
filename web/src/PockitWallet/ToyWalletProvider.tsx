@@ -293,7 +293,7 @@ export function ToyWalletProvider({ children }: { children: ReactNode }) {
 
     // Helper to get private key when needed
     const getPrivateKey = async (): Promise<`0x${string}` | null> => {
-        if (!unlocked || !currentPin) return null;
+        if (!unlocked || !currentPin) throw new Error('Wallet is locked');
         return await loadDecryptedKey(currentPin);
     };
 
