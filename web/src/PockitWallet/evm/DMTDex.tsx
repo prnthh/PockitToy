@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react';
 import { formatEther, parseEther } from 'viem';
 
 
-
 // ------------------------
 // Mock client: reads a value from a contract using the injected provider
 // This uses viem's ABI helpers for encoding/decoding, and calls window.ethereum.request({ method: 'eth_call' })
@@ -12,6 +11,7 @@ import { formatEther, parseEther } from 'viem';
 function DMTDex() {
     const { provider, client } = useEthereum();
     const [balance, setBalance] = useState<string | null>(null);
+    const [myBalance, setMyBalance] = useState<string | null>(null);
 
     useEffect(() => {
         if (!client || typeof client.getBalance !== 'function') return;
@@ -37,7 +37,10 @@ function DMTDex() {
         <CartridgeWrapper className="bg-white shadow-[inset_-2px_2px_6px_rgba(255,255,255,1),inset_2px_-2px_6px_-1px_rgba(0,0,0,0.8)] rounded-4xl p-2">
             <div className=" text-xs">
                 <span className='text-slate-700 italic text-xl font-bold'>DMT Cartridge</span>
-                {balance && <div>Vitalik's Balance: {balance}</div>}
+                {<div>My wallet: {client?.account}</div>}
+                {<div>My Balance: {myBalance}</div>}
+
+                {<div>Vitalik's Balance: {balance}</div>}
             </div>
             <div>
                 <button

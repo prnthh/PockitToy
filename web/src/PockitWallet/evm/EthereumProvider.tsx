@@ -54,6 +54,7 @@ export interface EthereumProviderProps {
     rpcUrl?: string;
     /** Optional subset of ToyWallet functions — pass `useToyWallet()` result from a parent to enable real wallet operations */
     wallet?: {
+        account?: string | null;
         getPrivateKey: () => Promise<`0x${string}` | null>;
         handleSign?: (message: string) => Promise<{ m: any; s: string; f: string } | null>;
         handleSeal?: (message: string, targetPublicKey: string, useIdentityMode: boolean) => Promise<string>;
@@ -99,6 +100,7 @@ async function createViemBackedProvider(opts?: {
             (walletClient as any).isMetaMask = false;
             (walletClient as any).isCoinbaseWallet = false;
             (walletClient as any).chainId = chainId;
+            (walletClient as any).account = account.address;
 
             // Override request to handle custom pockit methods
             const originalRequest = (walletClient as any).request.bind(walletClient);
@@ -133,6 +135,7 @@ async function createViemBackedProvider(opts?: {
     (publicClient as any).isMetaMask = false;
     (publicClient as any).isCoinbaseWallet = false;
     (publicClient as any).chainId = chainId;
+    (publicClient as any).account = wallet?.account || null;
 
     return { provider: publicClient as EthereumProvider, client: publicClient };
 }
@@ -235,6 +238,7 @@ export function EVMWrapper({ children }: { children?: React.ReactNode }) {
 
     // pass only the functions the provider needs
     const walletBridge = {
+        account: wallet.walletState.publicKey,
         getPrivateKey: wallet.getPrivateKey,
         handleSign: wallet.handleSign,
         handleSeal: wallet.handleSeal,

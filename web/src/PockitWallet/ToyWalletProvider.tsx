@@ -496,11 +496,12 @@ export function ToyWallet() {
         unlock,
         lock,
         copyPublicKey,
+        copyAddress,
         setShowPinInput,
         setError
     } = useToyWallet();
 
-    const { unlocked, publicKey, showPinInput, error } = walletState;
+    const { unlocked, publicKey, address, showPinInput, error } = walletState;
 
     const [pinInput, setPinInput] = useState('');
     const [showDebugPanel, setShowDebugPanel] = useState(false);
@@ -520,7 +521,7 @@ export function ToyWallet() {
     };
 
     const handleCopyPublicKey = async () => {
-        await copyPublicKey();
+        await copyAddress();
         setCopyFeedback(true);
         setTimeout(() => setCopyFeedback(false), 2000);
     };
@@ -552,7 +553,7 @@ export function ToyWallet() {
                             className="text-white text-sm font-mono truncate max-w-64 hover:text-blue-300 transition-colors cursor-pointer"
                             title="Copy public key"
                         >
-                            {copyFeedback ? 'Copied!' : formatPublicKeyShort(publicKey)}
+                            {copyFeedback ? 'Copied!' : formatPublicKeyShort(address)}
                         </button>
                     </>
                 ) : showPinInput ? (
