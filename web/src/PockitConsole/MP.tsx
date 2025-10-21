@@ -49,7 +49,11 @@ export default function MP({ appId = 'pockit.world', roomId, children }: { appId
     return () => { console.error = origConsoleError }
   }, [])
 
-  const { isLoaded, profile, setAddressBook } = useSaveBlob();
+  const { isLoaded, useData } = useSaveBlob();
+  const [, setAddressBook] = useData('addressBook', {} as Record<string, { name: string, addedAt: string, publicKey?: string }>);
+
+  // Load profile using the new reactive data API
+  const [profile] = useData('profile', {});
 
   // Initialize myState with saved profile on mount
   useEffect(() => {
@@ -202,10 +206,11 @@ export default function MP({ appId = 'pockit.world', roomId, children }: { appId
   // Handle address book updates when new peers join with wallet addresses
   useEffect(() => {
     if (!isLoaded) return;
+
     Object.values(peerStates).forEach((peerState) => {
       if (peerState.profile?.walletAddress && peerState.profile?.name) {
         setAddressBook(prev => ({
-          ...(prev || {}),
+          ...prev,
           [peerState.profile.walletAddress]: {
             name: peerState.profile.name,
             addedAt: new Date().toISOString(),
@@ -214,7 +219,7 @@ export default function MP({ appId = 'pockit.world', roomId, children }: { appId
         }));
       }
     });
-  }, [isLoaded, peerStates, setAddressBook]); // Run when peerStates change
+  }, [isLoaded, peerStates]); // Run when peerStates change
 
   const handleChatMessage = useCallback((data: DataPayload, peer: string) => {
     if (typeof data === 'string') {
