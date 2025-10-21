@@ -25,13 +25,20 @@ function DMTDex() {
         const vitalikAddress = '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045';
         client.getBalance({ address: vitalikAddress })
             .then((balance: bigint) => {
-                console.log('Vitalik\'s ETH balance:', balance);
-                console.log('Is > 10,000 ETH?', balance > 10000000000000000000000n);
                 setBalance(formatEther(balance));
             })
             .catch((err: any) => console.error('Error reading balance:', err));
 
-    }, [client]);
+        if (!client?.account) return;
+        client.getBalance({ address: client.account })
+            .then((balance: bigint) => {
+                console.log('My ETH balance:', balance);
+                setMyBalance(formatEther(balance));
+            })
+            .catch((err: any) => console.error('Error reading balance:', err));
+
+
+    }, [client, client?.account, provider]);
 
     return (
         <CartridgeWrapper className="bg-white shadow-[inset_-2px_2px_6px_rgba(255,255,255,1),inset_2px_-2px_6px_-1px_rgba(0,0,0,0.8)] rounded-4xl p-2">

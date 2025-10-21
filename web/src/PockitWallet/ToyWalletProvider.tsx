@@ -495,13 +495,13 @@ export function ToyWallet() {
         walletState,
         unlock,
         lock,
-        copyPublicKey,
+        // copyPublicKey,
         copyAddress,
         setShowPinInput,
         setError
     } = useToyWallet();
 
-    const { unlocked, publicKey, address, showPinInput, error } = walletState;
+    const { unlocked, address, showPinInput, error } = walletState;
 
     const [pinInput, setPinInput] = useState('');
     const [showDebugPanel, setShowDebugPanel] = useState(false);
