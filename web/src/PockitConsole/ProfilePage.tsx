@@ -2,10 +2,9 @@ import { useSaveBlob } from "@/shared/SaveBlobProvider";
 import { ToyWallet, useToyWallet } from "@/PockitWallet/ToyWalletProvider";
 import { useCallback, useEffect } from "react";
 
-export default function ProfilePage({ myState, setMyState, sendPlayerState }: {
+export default function ProfilePage({ myState, setMyState }: {
     myState: { position: [number, number, number], profile: { [key: string]: any } },
     setMyState: React.Dispatch<React.SetStateAction<{ position: [number, number, number], profile: { [key: string]: any } }>>,
-    sendPlayerState: (state: { position: [number, number, number], profile: { [key: string]: any } }) => void
 }) {
     const { useData } = useSaveBlob();
     const [, setSavedProfile] = useData('profile', {});
@@ -16,17 +15,15 @@ export default function ProfilePage({ myState, setMyState, sendPlayerState }: {
         const newState = { ...myState, profile: newProfile };
 
         setMyState(newState);
-        sendPlayerState(newState);
         setSavedProfile(newProfile);
-    }, [myState, setMyState, sendPlayerState, setSavedProfile]);
+    }, [myState, setMyState, setSavedProfile]);
 
     const setWholeProfile = useCallback((newProfile: { [key: string]: any }) => {
         const newState = { ...myState, profile: newProfile };
 
         setMyState(newState);
-        sendPlayerState(newState);
         setSavedProfile(newProfile);
-    }, [myState, setMyState, sendPlayerState, setSavedProfile]);
+    }, [myState, setMyState, setSavedProfile]);
 
     // Handle wallet address updates when wallet connects
     useEffect(() => {
@@ -41,10 +38,9 @@ export default function ProfilePage({ myState, setMyState, sendPlayerState }: {
             const newState = { ...myState, profile: newProfile };
 
             setMyState(newState);
-            sendPlayerState(newState);
             setSavedProfile(newProfile);
         }
-    }, [walletState.address, myState.profile.walletAddress, walletState.publicKey, myState.profile.publicKey, setMyState, sendPlayerState, setSavedProfile]);
+    }, [walletState.address, myState.profile.walletAddress, walletState.publicKey, myState.profile.publicKey, setMyState, setSavedProfile]);
 
     return (
         <div className="h-full w-full overflow-y-auto noscrollbar p-2">

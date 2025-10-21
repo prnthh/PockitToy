@@ -33,22 +33,6 @@ export const MPContext = createContext<{
 })
 
 export default function MP({ appId = 'pockit.world', roomId, children }: { appId?: string, roomId: string, children?: React.ReactNode }) {
-  // Suppress 'User-Initiated Abort' RTC errors in the console
-  useEffect(() => {
-    const origConsoleError = console.error
-    console.error = function (...args) {
-      if (
-        args[0]?.error?.name === 'OperationError' &&
-        args[0]?.error?.message?.includes('User-Initiated Abort')
-      ) {
-        // Suppress this error
-        return
-      }
-      origConsoleError.apply(console, args)
-    }
-    return () => { console.error = origConsoleError }
-  }, [])
-
   const { isLoaded, useData } = useSaveBlob();
   const [, setAddressBook] = useData('addressBook', {} as Record<string, { name: string, addedAt: string, publicKey?: string }>);
 
@@ -68,46 +52,6 @@ export default function MP({ appId = 'pockit.world', roomId, children }: { appId
   const [connectionKey, setConnectionKey] = useState(Math.random())
   const room = useMemo(() => joinRoom({ appId, password: undefined }, roomId), [appId, roomId, connectionKey])
 
-  useEffect(() => {
-    let interval: number | null = null;
-
-    const heartbeat = () => {
-      try {
-        room.getPeers();
-      } catch (error) {
-        console.error('Connection error:', error);
-        setConnectionKey(Math.random());
-      }
-    };
-
-    const start = () => {
-      if (interval) clearInterval(interval);
-      heartbeat();
-      interval = setInterval(heartbeat, 10000);
-    };
-
-    const stop = () => {
-      if (interval) {
-        clearInterval(interval);
-        interval = null;
-      }
-    };
-
-    const handleVisibility = () => document.hidden ? stop() : start();
-
-    start();
-    document.addEventListener('visibilitychange', handleVisibility);
-    window.addEventListener('focus', start);
-    window.addEventListener('blur', stop);
-
-    return () => {
-      stop();
-      document.removeEventListener('visibilitychange', handleVisibility);
-      window.removeEventListener('focus', start);
-      window.removeEventListener('blur', stop);
-    };
-  }, [room]);
-
   const { handleSign, handleVerify, walletState } = useToyWallet();
 
   // Peer states
@@ -116,6 +60,8 @@ export default function MP({ appId = 'pockit.world', roomId, children }: { appId
   const [myState, setMyState] = useState<{ position: [number, number, number], profile: { [key: string]: any } }>({ position: [0, 0, 0], profile: {} })
   const myStateRef = useRef(myState)
   useEffect(() => {
+    sendSignedProfile(myState)
+
     // Keep ref in sync with state
     myStateRef.current = myState
   }, [myState])
@@ -144,26 +90,25 @@ export default function MP({ appId = 'pockit.world', roomId, children }: { appId
     return stateToSend;
   }, [handleSign]);
 
+  const sendSignedProfile = useCallback(async (state: any, peerId?: string) => {
+    let stateToSend = { ...state, }
+    stateToSend.profile.peerId = selfId
+
+    trySignState(stateToSend).then((signedState) => {
+      sendPlayerState(signedState, peerId);
+    }).catch(() => {
+      sendPlayerState(stateToSend, peerId);
+    });
+  }, [sendPlayerState, trySignState]);
 
   useEffect(() => {
     if (walletState.unlocked) {
-      const stateToSend = { ...myStateRef.current }
-      stateToSend.profile.peerId = selfId
-
-      trySignState(stateToSend).then((signedState) => {
-        sendPlayerState(signedState);
-      })
+      sendSignedProfile(myStateRef.current);
     }
   }, [walletState.unlocked])
 
   const handlePeerJoin = useCallback((peer: string) => {
-    const stateToSend = { ...myStateRef.current }
-    stateToSend.profile.peerId = selfId
-
-    trySignState(stateToSend).then((signedState) => {
-      sendPlayerState(signedState, peer);
-    })
-
+    sendSignedProfile(myStateRef.current, peer);
   }, [sendPlayerState, trySignState])
 
   const handlePeerLeave = useCallback((peer: string) => {
@@ -229,9 +174,8 @@ export default function MP({ appId = 'pockit.world', roomId, children }: { appId
       if (data.startsWith('/')) {
         const command = data.slice(1).trim().split(' ')[0]
         if (command === 'event') {
-          if (peer == roomId) return; // Ignore events from the same room
-          const eventData = data.slice(7).trim()
           // Handle room events
+          // const eventData = data.slice(7).trim()
           // window.postMessage({ type: 'POCKIT_CHAT_EVENT', payload: JSON.parse(eventData) }, '*');
           return
         }
@@ -260,32 +204,10 @@ export default function MP({ appId = 'pockit.world', roomId, children }: { appId
     getChat(handleChatMessage)
   }, [room, getPeerStates, getChat, handlePeerJoin, handlePeerLeave, handlePeerState, handleChatMessage])
 
-  // Listen for local position updates from parent
-  // useEffect(() => {
-  //   const handler = (e: CustomEvent) => {
-  //     const pos = e.detail as [number, number, number]
-  //     setMyState(state => ({ ...state, position: pos }))
-  //     // Use myStateRef to get current state without stale closure
-  //     // sendPlayerState({ ...myStateRef.current, position: pos })
-  //   }
-  //   window.addEventListener('mp-pos', handler as EventListener)
-  //   return () => window.removeEventListener('mp-pos', handler as EventListener)
-  // }, [sendPlayerState])
-
-  // Listen for room events from parent, room is stateless
-  // useEffect(() => {
-  //   const handler = (e: CustomEvent) => {
-  //     sendChat(`/event ${JSON.stringify(e.detail)}`)
-  //   }
-  //   window.addEventListener('mp-trigger', handler as EventListener)
-  //   return () => window.removeEventListener('mp-trigger', handler as EventListener)
-  // }, [sendChat])
-
   const pages = useMemo(() => ({
     profile: <ProfilePage
       myState={myState}
       setMyState={setMyState}
-      sendPlayerState={sendPlayerState}
     />,
     console: <ChatBox
       chatInput={chatInput}
@@ -302,7 +224,6 @@ export default function MP({ appId = 'pockit.world', roomId, children }: { appId
 
   const [currentUIPage, setCurrentUIPage] = useState<keyof typeof pages>(Object.keys(pages)[0] as keyof typeof pages)
   const [currentTheme, setCurrentTheme] = useState<keyof typeof themes>(Object.keys(themes)[Math.floor(Math.random() * Object.keys(themes).length)] as keyof typeof themes)
-
 
   return (
     <MPContext.Provider value={{ room, peerStates, myState }}>
@@ -366,6 +287,7 @@ export default function MP({ appId = 'pockit.world', roomId, children }: { appId
         {/* Glossy overlays for depth, keep outer shell shine */}
         <div className="absolute top-0 left-0 w-full h-full pointer-events-none rounded-[2.2rem] bg-gradient-to-tr from-white/40 via-white/0 to-white/20 opacity-70mix-blend-screen" />
       </div>
+      <RoomHeartbeat room={room} setConnectionKey={setConnectionKey} />
     </MPContext.Provider >
   )
 }
@@ -439,12 +361,63 @@ const ButtonWithFX = ({ children }: { children: ReactNode }) => {
 }
 
 
-// server side
+const RoomHeartbeat = ({ room, setConnectionKey }: { room: any, setConnectionKey: (key: number) => void }) => {
+  // Suppress 'User-Initiated Abort' RTC errors in the console
+  useEffect(() => {
+    const origConsoleError = console.error
+    console.error = function (...args) {
+      if (
+        args[0]?.error?.name === 'OperationError' &&
+        args[0]?.error?.message?.includes('User-Initiated Abort')
+      ) {
+        // Suppress this error
+        return
+      }
+      origConsoleError.apply(console, args)
+    }
+    return () => { console.error = origConsoleError }
+  }, [])
 
-// import {joinRoom} from 'trystero'
-// import {RTCPeerConnection} from 'node-datachannel/polyfill'
 
-// const room = joinRoom(
-//   {appId: 'your-app-id', rtcPolyfill: RTCPeerConnection},
-//   'your-room-name'
-// )
+  useEffect(() => {
+    let interval: number | null = null;
+
+    const heartbeat = () => {
+      try {
+        room.getPeers();
+      } catch (error) {
+        console.error('Connection error:', error);
+        setConnectionKey(Math.random());
+      }
+    };
+
+    const start = () => {
+      if (interval) clearInterval(interval);
+      heartbeat();
+      interval = setInterval(heartbeat, 10000);
+    };
+
+    const stop = () => {
+      if (interval) {
+        clearInterval(interval);
+        interval = null;
+      }
+    };
+
+    const handleVisibility = () => document.hidden ? stop() : start();
+
+    start();
+    document.addEventListener('visibilitychange', handleVisibility);
+    window.addEventListener('focus', start);
+    window.addEventListener('blur', stop);
+
+    return () => {
+      stop();
+      document.removeEventListener('visibilitychange', handleVisibility);
+      window.removeEventListener('focus', start);
+      window.removeEventListener('blur', stop);
+    };
+  }, [room]);
+
+  return null
+}
