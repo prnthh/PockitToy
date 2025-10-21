@@ -11,17 +11,16 @@ export default function WindowMessageHandler(
             if (source !== window.parent) {
                 // return; // only accept messages from the parent window
             }
-            console.log('Received message:', event);
 
             if (type === 'CUSTOM_EVENT') {
                 console.log('Received CUSTOM_EVENT with payload:', payload);
                 // Handle the custom event
-            } else if (type === 'POCKIT_CHAT') {
-                console.log('Received POCKIT_CHAT with payload:', payload);
+            } else if (type === 'POCKIT_CHAT_SEND') {
+                console.log('Received POCKIT_CHAT_SEND with payload:', payload);
                 if (sendChat && payload?.message) {
                     sendChat(payload.message);
                 }
-                // Handle the POCKIT_CHAT event
+                // Handle the POCKIT_CHAT_SEND event
             } else if (type === 'ping') {
                 console.log('Received ping, sending pong');
                 window.parent.postMessage({ type: 'pong' }, '*');

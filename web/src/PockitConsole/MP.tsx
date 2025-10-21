@@ -223,13 +223,16 @@ export default function MP({ appId = 'pockit.world', roomId, children }: { appId
 
   const handleChatMessage = useCallback((data: DataPayload, peer: string) => {
     if (typeof data === 'string') {
+      console.log('Chat message from', peer, ':', data);
+      window.postMessage({ type: 'POCKIT_CHAT_EVENT', payload: (data) }, '*');
+
       if (data.startsWith('/')) {
         const command = data.slice(1).trim().split(' ')[0]
         if (command === 'event') {
           if (peer == roomId) return; // Ignore events from the same room
           const eventData = data.slice(7).trim()
           // Handle room events
-          window.dispatchEvent(new CustomEvent('mp-event', { detail: JSON.parse(eventData) }))
+          // window.postMessage({ type: 'POCKIT_CHAT_EVENT', payload: JSON.parse(eventData) }, '*');
           return
         }
       }
