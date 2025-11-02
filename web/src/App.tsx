@@ -49,16 +49,24 @@ const IframePositionWrapper = ({ children }: { children: React.ReactNode }) => {
     }
   }, [isInsideIframe]);
 
-  return isInsideIframe ? <div className='z-50 max-w-[400px] h-[220px]'>{children}</div> :
+  return isInsideIframe ? <div className='z-50 max-w-[400px] h-[220px]'>
+    <ToyLabel />
+    {children}
+  </div> :
     <>
       <SkyShader />
       <AppCarousel />
       <div className={`fixed overflow-hidden w-screen ${isIOSStandalone ? 'h-[calc(100vh+env(safe-area-inset-bottom))]' : 'h-screen'} overflow-none pointer-events-none select-none z-50`}>
         <div className={`fixed transition-all ease-in-out duration-500 ${isInsideIframe ? "h-[220px] w-[400px]" : "h-[220px] w-[92vw] md:w-[400px]"} ${!loaded ? '-bottom-[200px] scale-[90%]' : isIOSStandalone ? 'bottom-4' : isIOS ? 'bottom-4' : 'bottom-2'} left-1/2 -translate-x-1/2 absolute transition-all pointer-events-auto flex flex-col`}>
+          <ToyLabel />
           {children}
         </div>
       </div>
     </>
+}
+
+const ToyLabel = () => {
+  return <div className='absolute -left-[42px] w-[42px] z-50 bottom-[50px] bg-slate-700/50 rounded-l-sm italic text-xs text-white py-1 text-shadow-[0_1px_2px_rgba(0,0,0,0.5)]'>wallet</div>
 }
 
 

@@ -33,21 +33,11 @@ export const MPContext = createContext<{
 })
 
 export default function MP({ appId = 'pockit.world', roomId, children }: { appId?: string, roomId: string, children?: React.ReactNode }) {
-  const { isLoaded, useData } = useSaveBlob();
+  const { useData } = useSaveBlob();
   const [, setAddressBook] = useData('addressBook', {} as Record<string, { name: string, addedAt: string, publicKey?: string }>);
 
   // Load profile using the new reactive data API
   const [profile] = useData('profile', {});
-
-  // Initialize myState with saved profile on mount
-  useEffect(() => {
-    if (Object.keys(profile).length > 0) {
-      setMyState(state => ({
-        ...state,
-        profile: profile
-      }));
-    }
-  }, [profile]); // Run when profile changes
 
   const [connectionKey, setConnectionKey] = useState(Math.random())
   const room = useMemo(() => joinRoom({ appId, password: undefined }, roomId), [appId, roomId, connectionKey])
@@ -59,6 +49,15 @@ export default function MP({ appId = 'pockit.world', roomId, children }: { appId
   const [peerStates, setPeerStates] = useState<Record<string, PeerState>>({})
   const [myState, setMyState] = useState<{ position: [number, number, number], profile: { [key: string]: any } }>({ position: [0, 0, 0], profile: {} })
   const myStateRef = useRef(myState)
+
+  // Initialize myState with saved profile on mount (only once)
+  const isProfileInitialized = useRef(false);
+  useEffect(() => {
+    if (!isProfileInitialized.current && Object.keys(profile).length > 0) {
+      setMyState(prev => ({ ...prev, profile }));
+      isProfileInitialized.current = true;
+    }
+  }, [profile]);
   useEffect(() => {
     sendSignedProfile(myState)
 
@@ -150,8 +149,6 @@ export default function MP({ appId = 'pockit.world', roomId, children }: { appId
 
   // Handle address book updates when new peers join with wallet addresses
   useEffect(() => {
-    if (!isLoaded) return;
-
     Object.values(peerStates).forEach((peerState) => {
       if (peerState.profile?.walletAddress && peerState.profile?.name) {
         setAddressBook(prev => ({
@@ -164,7 +161,7 @@ export default function MP({ appId = 'pockit.world', roomId, children }: { appId
         }));
       }
     });
-  }, [isLoaded, peerStates]); // Run when peerStates change
+  }, [peerStates]); // Run when peerStates change
 
   const handleChatMessage = useCallback((data: DataPayload, peer: string) => {
     if (typeof data === 'string') {

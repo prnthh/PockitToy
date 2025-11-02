@@ -16,7 +16,7 @@ type Contact = {
 
 export default function PeerList({ sendChat }: { sendChat: (msg: string, peer?: string) => void }) {
     const { peerStates, room } = useContext(MPContext);
-    const { useData, isLoaded } = useSaveBlob();
+    const { useData } = useSaveBlob();
     const [addressBook, setAddressBook] = useData('addressBook', {} as Record<string, { name: string, addedAt: string, publicKey?: string }>);
     const [selected, setSelected] = useState<string | null>(null);
     const [dmTarget, setDmTarget] = useState<string | null>(null);
@@ -174,7 +174,7 @@ export default function PeerList({ sendChat }: { sendChat: (msg: string, peer?: 
                 </div>
             ))}
 
-            {contacts.length === 0 && isLoaded && (
+            {contacts.length === 0 && (
                 <div className="text-[11px] text-black italic text-center py-2">
                     No contacts yet. Connect with peers to build your network!
                 </div>

@@ -1,4 +1,5 @@
 import { useState, useEffect, createContext, useContext, type ReactNode } from "react";
+import { useLocalStorage } from "@uidotdev/usehooks";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import { hexToBytes, verifyMessage } from "viem";
 import * as secp from '@noble/secp256k1';
@@ -216,7 +217,9 @@ function generateSalt(): Uint8Array {
     return crypto.getRandomValues(new Uint8Array(16)); // 128-bit salt
 }
 
-async function encryptPrivateKey(privateKeyHex: `0x${string}`, pin: string): Promise<string> {
+
+
+async function encryptKey(privateKeyHex: `0x${string}`, pin: string): Promise<string> {
     const salt = generateSalt();
     const { key, iv } = await deriveKeyAndIv(pin, salt);
 
@@ -226,14 +229,13 @@ async function encryptPrivateKey(privateKeyHex: `0x${string}`, pin: string): Pro
         new TextEncoder().encode(privateKeyHex)
     );
 
-    // Store salt + encrypted data; IV is derived from (pin, salt) so we don't store it
     return JSON.stringify({
         salt: toBase64(salt),
         data: toBase64(new Uint8Array(encrypted))
     });
 }
 
-async function decryptPrivateKey(encryptedData: string, pin: string): Promise<`0x${string}` | null> {
+async function decryptKey(encryptedData: string, pin: string): Promise<`0x${string}` | null> {
     try {
         const { salt, data } = JSON.parse(encryptedData);
         const saltBytes = fromBase64(salt);
@@ -247,57 +249,35 @@ async function decryptPrivateKey(encryptedData: string, pin: string): Promise<`0
 
         return new TextDecoder().decode(decrypted) as `0x${string}`;
     } catch {
-        return null; // Decryption failed (wrong PIN or corrupted data)
+        return null;
     }
-}
-
-async function saveEncryptedKey(privateKeyHex: `0x${string}`, pin: string) {
-    const encrypted = await encryptPrivateKey(privateKeyHex, pin);
-    localStorage.setItem('wallet', encrypted);
-}
-
-async function loadDecryptedKey(pin: string): Promise<`0x${string}`> {
-    const stored = localStorage.getItem('wallet');
-    if (!stored) throw new Error('No wallet found');
-
-    const key = await decryptPrivateKey(stored, pin);
-    if (!key) throw new Error('Failed to decrypt wallet');
-
-    return key;
-}
-
-function keyExists(): boolean {
-    return !!localStorage.getItem('wallet');
-}
-
-function removeKey() {
-    localStorage.removeItem('wallet');
 }
 
 // ==================== PROVIDER IMPLEMENTATION ====================
 export function ToyWalletProvider({ children }: { children: ReactNode }) {
+    const [encryptedWallet, setEncryptedWallet] = useLocalStorage<string | null>("wallet", null);
     const [currentPin, setCurrentPin] = useState('');
     const [unlocked, setUnlocked] = useState(false);
     const [address, setAddress] = useState('');
     const [publicKey, setPublicKey] = useState('');
     const [showPinInput, setShowPinInput] = useState(false);
     const [error, setError] = useState('');
-    // Ensure wallet is locked if there is no stored key on mount and when storage changes
+
+    // Lock wallet when encrypted wallet is removed
     useEffect(() => {
-        if (!keyExists()) lock();
-        const handler = (e: StorageEvent) => {
-            if (e.key === 'wallet' && e.newValue === null) {
-                lock();
-            }
-        };
-        window.addEventListener('storage', handler);
-        return () => window.removeEventListener('storage', handler);
-    }, []);
+        if (!encryptedWallet) {
+            lock();
+        }
+    }, [encryptedWallet]);
 
     // Helper to get private key when needed
     const getPrivateKey = async (): Promise<`0x${string}`> => {
-        if (!unlocked || !currentPin) throw new Error('Wallet is locked');
-        return await loadDecryptedKey(currentPin);
+        if (!unlocked || !currentPin || !encryptedWallet) {
+            throw new Error('Wallet is locked');
+        }
+        const key = await decryptKey(encryptedWallet, currentPin);
+        if (!key) throw new Error('Failed to decrypt wallet');
+        return key;
     };
 
     const unlock = async (pin: string) => {
@@ -307,17 +287,20 @@ export function ToyWalletProvider({ children }: { children: ReactNode }) {
         }
 
         setError('');
-        const walletExists = keyExists();
-        let key = await loadDecryptedKey(pin);
+        let key: `0x${string}` | null = null;
 
-        if (!key && !walletExists) {
+        if (encryptedWallet) {
+            // Try to decrypt existing wallet
+            key = await decryptKey(encryptedWallet, pin);
+            if (!key) {
+                setError('Incorrect PIN');
+                return;
+            }
+        } else {
             // Create new wallet
             key = generatePrivateKey();
-            await saveEncryptedKey(key, pin);
-        } else if (!key && walletExists) {
-            // Wallet exists but wrong PIN
-            setError('Incorrect PIN');
-            return;
+            const encrypted = await encryptKey(key, pin);
+            setEncryptedWallet(encrypted);
         }
 
         if (key) {
@@ -416,7 +399,7 @@ export function ToyWalletProvider({ children }: { children: ReactNode }) {
     };
 
     const handleReset = () => {
-        removeKey();
+        setEncryptedWallet(null);
         lock();
     };
 
@@ -442,12 +425,17 @@ export function ToyWalletProvider({ children }: { children: ReactNode }) {
             if (!key.startsWith('0x') || key.length !== 66) throw new Error('Invalid format');
             const newPin = prompt('Enter a 4-digit PIN:');
             if (!newPin || newPin.length !== 4 || !/^\d{4}$/.test(newPin)) throw new Error('Invalid PIN');
-            await saveEncryptedKey(key as `0x${string}`, newPin);
 
+            const encrypted = await encryptKey(key as `0x${string}`, newPin);
+            setEncryptedWallet(encrypted);
             setError('');
         } catch (err: any) {
             setError(err.message);
         }
+    };
+
+    const keyExists = (): boolean => {
+        return !!encryptedWallet;
     };
 
     const walletState: WalletState = {
@@ -501,7 +489,8 @@ export function ToyWallet() {
         // copyPublicKey,
         copyAddress,
         setShowPinInput,
-        setError
+        setError,
+        keyExists
     } = useToyWallet();
 
     const { unlocked, address, showPinInput, error } = walletState;
