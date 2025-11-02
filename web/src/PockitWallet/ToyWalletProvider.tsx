@@ -52,7 +52,7 @@ const ToyWalletContext = createContext<ToyWalletContextType | null>(null);
 const toBase64 = (b: Uint8Array) => btoa(String.fromCharCode(...b));
 const fromBase64 = (s: string) => new Uint8Array(atob(s).split('').map(c => c.charCodeAt(0)));
 
-function formatPublicKeyShort(pk?: string) {
+export function formatPublicKeyShort(pk?: string) {
     if (!pk || pk.length <= 24) return pk || '';
     return `${pk.slice(0, 10)}…${pk.slice(-6)}`;
 }

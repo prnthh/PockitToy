@@ -1,66 +1,45 @@
-import { useSaveBlob } from "@/shared/SaveBlobProvider";
-import { ToyWallet, useToyWallet } from "@/PockitWallet/ToyWalletProvider";
-import { useCallback, useEffect, useRef } from "react";
+import { useToyWallet, ToyWallet } from "@/PockitWallet/ToyWalletProvider";
+import { useCallback, useEffect } from "react";
 
-export default function ProfilePage({ myState, setMyState }: {
-    myState: { position: [number, number, number], profile: { [key: string]: any } },
-    setMyState: React.Dispatch<React.SetStateAction<{ position: [number, number, number], profile: { [key: string]: any } }>>,
+export default function ProfilePage({ myProfile, setMyProfile }: {
+    myProfile: { [key: string]: any },
+    setMyProfile: (newValue: any | ((prev: any) => any)) => void,
 }) {
-    const { useData } = useSaveBlob();
-    const [savedProfile, setSavedProfile] = useData('profile', {});
     const { walletState } = useToyWallet();
-    const isInitialized = useRef(false);
-
-    // Load saved profile on mount (only once, but wait for it to be available)
-    useEffect(() => {
-        if (!isInitialized.current) {
-            if (Object.keys(savedProfile).length > 0) {
-                setMyState(prev => ({ ...prev, profile: savedProfile }));
-                isInitialized.current = true;
-            }
-        }
-    }, [savedProfile, setMyState]);
 
     const updateProfile = useCallback((key: string, value: any) => {
-        setMyState(prev => {
-            const newProfile = { ...prev.profile, [key]: value };
-            setSavedProfile(newProfile);
-            return { ...prev, profile: newProfile };
-        });
-    }, [setMyState, setSavedProfile]);
+        setMyProfile((prev: any) => ({ ...prev, [key]: value }));
+    }, [setMyProfile]);
 
     const setWholeProfile = useCallback((newProfile: { [key: string]: any }) => {
-        setMyState(prev => ({ ...prev, profile: newProfile }));
-        setSavedProfile(newProfile);
-    }, [setMyState, setSavedProfile]);
+        setMyProfile(newProfile);
+    }, [setMyProfile]);
 
     // Sync wallet address and public key to profile when wallet unlocks or changes
     useEffect(() => {
         if (!walletState.unlocked) return;
 
-        setMyState(prev => {
+        setMyProfile((prev: any) => {
             const needsUpdate =
-                (walletState.address && walletState.address !== prev.profile.walletAddress) ||
-                (walletState.publicKey && walletState.publicKey !== prev.profile.publicKey);
+                (walletState.address && walletState.address !== prev.walletAddress) ||
+                (walletState.publicKey && walletState.publicKey !== prev.publicKey);
 
             if (needsUpdate) {
-                const newProfile = {
-                    ...prev.profile,
+                return {
+                    ...prev,
                     walletAddress: walletState.address,
                     publicKey: walletState.publicKey
                 };
-                setSavedProfile(newProfile);
-                return { ...prev, profile: newProfile };
             }
             return prev;
         });
-    }, [walletState.unlocked, walletState.address, walletState.publicKey, setMyState, setSavedProfile]);
+    }, [walletState.unlocked, walletState.address, walletState.publicKey, setMyProfile]);
 
     return (
         <div className="h-full w-full overflow-y-auto noscrollbar p-2">
-            <Profile profile={myState.profile} updateProfile={updateProfile} />
+            <Profile profile={myProfile} updateProfile={updateProfile} />
             <input
-                value={JSON.stringify(myState.profile)}
+                value={JSON.stringify(myProfile)}
                 onChange={(e) => {
                     try {
                         const obj = JSON.parse(e.target.value);

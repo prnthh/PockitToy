@@ -28,22 +28,27 @@ export default function ChatBox({ consoleMessages, chatInput, setChatInput, send
                 ref={chatListRef}
                 className="h-full overflow-y-auto text-[13px] mb-1 font-mono noscrollbar px-1 py-1 mt-1 mx-1"
             >
-                {consoleMessages.map((msg, i) => (
-                    <div
-                        key={i}
-                        className="text-left mb-0.5 border rounded-md px-1 py-0.5 bg-white/10 animate-[zoomIn_0.3s_ease]"
-                        style={{
-                            animationName: 'zoomIn',
-                            animationDuration: '0.3s',
-                            animationTimingFunction: 'ease',
-                        }}
-                    >
-                        <span className={`${isMe(msg.peer) ? 'text-[#000eee]' : peerStates[msg.peer]?.profile?.name ? 'text-[#1976d2]' : ''} font-bold`}>
-                            {isMe(msg.peer) ? myName : peerStates[msg.peer]?.profile?.name || msg.peer.slice(0, 8)}
-                        </span>
-                        <span>: {msg.message}</span>
-                    </div>
-                ))}
+                {consoleMessages.map((msg, i) => {
+                    const peer = peerStates[msg.peer];
+
+                    return (
+                        <div
+                            key={i}
+                            className="text-left mb-0.5 border rounded-md px-1 py-0.5 bg-white/10 animate-[zoomIn_0.3s_ease]"
+                            style={{
+                                animationName: 'zoomIn',
+                                animationDuration: '0.3s',
+                                animationTimingFunction: 'ease',
+                            }}
+                        >
+                            <span className={`${isMe(msg.peer) ? 'text-[#000eee]' : peerStates[msg.peer]?.profile?.name ? 'text-[#1976d2]' : ''} font-bold`}>
+                                {isMe(msg.peer) ? myName : peerStates[msg.peer]?.profile?.name || msg.peer.slice(0, 8)}
+                                <div className="inline bg-red-200 rounded mx-1">{(peerStates[msg.peer]?.profile?.walletAddress)?.slice(-5)}</div>
+                            </span>
+                            <span>: {msg.message}</span>
+                        </div>
+                    )
+                })}
 
                 <style>
                     {`

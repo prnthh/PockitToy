@@ -35,35 +35,23 @@ export const MPContext = createContext<{
 export default function MP({ appId = 'pockit.world', roomId, children }: { appId?: string, roomId: string, children?: React.ReactNode }) {
   const { useData } = useSaveBlob();
   const [, setAddressBook] = useData('addressBook', {} as Record<string, { name: string, addedAt: string, publicKey?: string }>);
-
-  // Load profile using the new reactive data API
-  const [profile] = useData('profile', {});
+  const [myProfile, setMyProfile] = useData('profile', {});
 
   const [connectionKey, setConnectionKey] = useState(Math.random())
   const room = useMemo(() => joinRoom({ appId, password: undefined }, roomId), [appId, roomId, connectionKey])
 
-  const { handleSign, handleVerify, walletState } = useToyWallet();
+  const { handleSign, handleVerify } = useToyWallet();
 
   // Peer states
   const [sendPlayerState, getPeerStates] = room.makeAction('peerState')
   const [peerStates, setPeerStates] = useState<Record<string, PeerState>>({})
-  const [myState, setMyState] = useState<{ position: [number, number, number], profile: { [key: string]: any } }>({ position: [0, 0, 0], profile: {} })
-  const myStateRef = useRef(myState)
+  const [myPosition] = useState<[number, number, number]>([0, 0, 0])
 
-  // Initialize myState with saved profile on mount (only once)
-  const isProfileInitialized = useRef(false);
-  useEffect(() => {
-    if (!isProfileInitialized.current && Object.keys(profile).length > 0) {
-      setMyState(prev => ({ ...prev, profile }));
-      isProfileInitialized.current = true;
-    }
-  }, [profile]);
-  useEffect(() => {
-    sendSignedProfile(myState)
-
-    // Keep ref in sync with state
-    myStateRef.current = myState
-  }, [myState])
+  // Combine position and profile into myState for compatibility
+  const myState = useMemo(() => ({
+    position: myPosition,
+    profile: myProfile
+  }), [myPosition, myProfile]);
 
   // Chat state
   const [sendChat, getChat] = room.makeAction('chat')
@@ -83,32 +71,42 @@ export default function MP({ appId = 'pockit.world', roomId, children }: { appId
         stateToSend.signature = s;
       }
     } catch (error) {
-      // console.log('Failed to sign profile:', error);
+      // Failed to sign, send unsigned
     }
 
     return stateToSend;
   }, [handleSign]);
 
   const sendSignedProfile = useCallback(async (state: any, peerId?: string) => {
-    let stateToSend = { ...state, }
-    stateToSend.profile.peerId = selfId
+    const stateToSend = { ...state, profile: { ...state.profile, peerId: selfId } };
 
-    trySignState(stateToSend).then((signedState) => {
+    try {
+      const signedState = await trySignState(stateToSend);
       sendPlayerState(signedState, peerId);
-    }).catch(() => {
+    } catch {
       sendPlayerState(stateToSend, peerId);
-    });
+    }
   }, [sendPlayerState, trySignState]);
 
+  // Broadcast state changes (debounced)
+  const lastBroadcastState = useRef<string>('');
   useEffect(() => {
-    if (walletState.unlocked) {
-      sendSignedProfile(myStateRef.current);
-    }
-  }, [walletState.unlocked])
+    const stateStr = JSON.stringify(myState);
+
+    // Skip if state hasn't actually changed
+    if (stateStr === lastBroadcastState.current) return;
+
+    const timeout = setTimeout(() => {
+      lastBroadcastState.current = stateStr;
+      sendSignedProfile(myState);
+    }, 100);
+
+    return () => clearTimeout(timeout);
+  }, [myState, sendSignedProfile]);
 
   const handlePeerJoin = useCallback((peer: string) => {
-    sendSignedProfile(myStateRef.current, peer);
-  }, [sendPlayerState, trySignState])
+    sendSignedProfile(myState, peer);
+  }, [myState, sendSignedProfile])
 
   const handlePeerLeave = useCallback((peer: string) => {
     setPeerStates(states => {
@@ -147,21 +145,33 @@ export default function MP({ appId = 'pockit.world', roomId, children }: { appId
     }
   }, [])
 
-  // Handle address book updates when new peers join with wallet addresses
+  // Update address book when peers with wallets join (debounced)
   useEffect(() => {
-    Object.values(peerStates).forEach((peerState) => {
-      if (peerState.profile?.walletAddress && peerState.profile?.name) {
-        setAddressBook(prev => ({
-          ...prev,
-          [peerState.profile.walletAddress]: {
-            name: peerState.profile.name,
-            addedAt: new Date().toISOString(),
-            publicKey: peerState.profile.publicKey
+    const timeout = setTimeout(() => {
+      Object.values(peerStates).forEach((peerState) => {
+        const { walletAddress, name, publicKey } = peerState.profile || {};
+        if (!walletAddress || !name) return;
+
+        setAddressBook(prev => {
+          const existing = prev[walletAddress];
+          // Only update if new or changed
+          if (!existing || existing.name !== name || existing.publicKey !== publicKey) {
+            return {
+              ...prev,
+              [walletAddress]: {
+                name,
+                addedAt: existing?.addedAt || new Date().toISOString(),
+                publicKey
+              }
+            };
           }
-        }));
-      }
-    });
-  }, [peerStates]); // Run when peerStates change
+          return prev;
+        });
+      });
+    }, 500);
+
+    return () => clearTimeout(timeout);
+  }, [peerStates, setAddressBook]);
 
   const handleChatMessage = useCallback((data: DataPayload, peer: string) => {
     if (typeof data === 'string') {
@@ -203,8 +213,8 @@ export default function MP({ appId = 'pockit.world', roomId, children }: { appId
 
   const pages = useMemo(() => ({
     profile: <ProfilePage
-      myState={myState}
-      setMyState={setMyState}
+      myProfile={myProfile}
+      setMyProfile={setMyProfile}
     />,
     console: <ChatBox
       chatInput={chatInput}
@@ -217,7 +227,7 @@ export default function MP({ appId = 'pockit.world', roomId, children }: { appId
       sendChat={sendChat}
     />,
     config: <ConfigPage />
-  }), [myState, setMyState, sendPlayerState, chatInput, setChatInput, sendChat, consoleMessages, setConsoleMessages]);
+  }), [myProfile, setMyProfile, chatInput, setChatInput, sendChat, consoleMessages, setConsoleMessages]);
 
   const [currentUIPage, setCurrentUIPage] = useState<keyof typeof pages>(Object.keys(pages)[0] as keyof typeof pages)
   const [currentTheme, setCurrentTheme] = useState<keyof typeof themes>(Object.keys(themes)[Math.floor(Math.random() * Object.keys(themes).length)] as keyof typeof themes)
