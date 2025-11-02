@@ -41,9 +41,9 @@ export default function ChatBox({ consoleMessages, chatInput, setChatInput, send
                                 animationTimingFunction: 'ease',
                             }}
                         >
-                            <span className={`${isMe(msg.peer) ? 'text-[#000eee]' : peerStates[msg.peer]?.profile?.name ? 'text-[#1976d2]' : ''} font-bold`}>
-                                {isMe(msg.peer) ? myName : peerStates[msg.peer]?.profile?.name || msg.peer.slice(0, 8)}
-                                <div className="inline bg-red-200 rounded mx-1">{(peerStates[msg.peer]?.profile?.walletAddress)?.slice(-5)}</div>
+                            <span className={`${isMe(msg.peer) ? 'text-[#000eee]' : peer?.profile?.name ? 'text-[#1976d2]' : ''} font-bold`}>
+                                {isMe(msg.peer) ? myName : peer?.profile?.name || msg.peer.slice(0, 8)}
+                                <div className="inline bg-red-200 rounded mx-1">{(peer?.profile?.walletAddress)?.slice(-5)}</div>
                             </span>
                             <span>: {msg.message}</span>
                         </div>
