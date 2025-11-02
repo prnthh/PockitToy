@@ -40,7 +40,7 @@ export default function MP({ appId = 'pockit.world', roomId, children }: { appId
   const [connectionKey, setConnectionKey] = useState(Math.random())
   const room = useMemo(() => joinRoom({ appId, password: undefined }, roomId), [appId, roomId, connectionKey])
 
-  const { handleSign, handleVerify } = useToyWallet();
+  const { handleSign, handleVerify, walletState } = useToyWallet();
 
   // Peer states
   const [sendPlayerState, getPeerStates] = room.makeAction('peerState')
@@ -66,12 +66,14 @@ export default function MP({ appId = 'pockit.world', roomId, children }: { appId
     try {
       const result = await handleSign(JSON.stringify(stateToSend.profile));
       if (result && typeof result.s === 'string') {
-        const { m, s, f } = result;
-        console.log('Profile signed successfully', { m: JSON.parse(m), s, f });
+        const { s, f } = result;
+        console.log('✍️ Profile signed successfully', { from: f, signature: s.slice(0, 20) + '...' });
         stateToSend.signature = s;
+      } else {
+        console.log('❌ Sign failed - wallet may be locked');
       }
     } catch (error) {
-      // Failed to sign, send unsigned
+      console.log('❌ Sign error:', error);
     }
 
     return stateToSend;
@@ -82,27 +84,50 @@ export default function MP({ appId = 'pockit.world', roomId, children }: { appId
 
     try {
       const signedState = await trySignState(stateToSend);
+      console.log('📡 Broadcasting profile:', {
+        to: peerId || 'all peers',
+        signed: !!signedState.signature,
+        name: signedState.profile.name,
+        wallet: signedState.profile.walletAddress?.slice(0, 10) + '...'
+      });
       sendPlayerState(signedState, peerId);
-    } catch {
+    } catch (error) {
+      console.log('❌ Broadcast error:', error);
       sendPlayerState(stateToSend, peerId);
     }
   }, [sendPlayerState, trySignState]);
 
   // Broadcast state changes (debounced)
   const lastBroadcastState = useRef<string>('');
+  const forceRebroadcast = useRef(false);
+
   useEffect(() => {
     const stateStr = JSON.stringify(myState);
 
-    // Skip if state hasn't actually changed
-    if (stateStr === lastBroadcastState.current) return;
+    // Skip if state hasn't actually changed and not forcing rebroadcast
+    if (stateStr === lastBroadcastState.current && !forceRebroadcast.current) return;
 
     const timeout = setTimeout(() => {
       lastBroadcastState.current = stateStr;
+      forceRebroadcast.current = false;
       sendSignedProfile(myState);
     }, 100);
 
     return () => clearTimeout(timeout);
   }, [myState, sendSignedProfile]);
+
+  // Re-broadcast when wallet unlocks to send signed version
+  const prevUnlocked = useRef(walletState.unlocked);
+  useEffect(() => {
+    // Only broadcast on unlock transition (false -> true)
+    if (walletState.unlocked && !prevUnlocked.current) {
+      // Force re-broadcast even if state hasn't changed
+      forceRebroadcast.current = true;
+      // Trigger the broadcast effect by updating the dependency
+      sendSignedProfile(myState);
+    }
+    prevUnlocked.current = walletState.unlocked;
+  }, [walletState.unlocked, myState, sendSignedProfile]);
 
   const handlePeerJoin = useCallback((peer: string) => {
     sendSignedProfile(myState, peer);
